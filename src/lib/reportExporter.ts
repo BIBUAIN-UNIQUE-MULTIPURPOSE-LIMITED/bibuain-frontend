@@ -1,9 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import pdfMake from 'pdfmake/build/pdfmake';
-import pdfFonts from 'pdfmake/build/vfs_fonts';
 
-// Initialize pdfMake
-pdfMake.vfs = pdfFonts.pdfMake.vfs;
 
 // Define the interfaces used in the export (if needed)
 interface ComplaintData {
