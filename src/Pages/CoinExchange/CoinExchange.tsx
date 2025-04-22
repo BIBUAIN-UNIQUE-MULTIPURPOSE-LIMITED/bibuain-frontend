@@ -174,7 +174,7 @@ const BalanceCheckUI: React.FC = () => {
     try {
       const capInSatoshis = capitalLimit * 1e8;
       const res = await updateCapRates({ marketCap: capInSatoshis });
-      if (res?.success) {
+      if (res) {
         setCapitalLimit(capitalLimit);
         toast.success("Cap limit updated!");
       }

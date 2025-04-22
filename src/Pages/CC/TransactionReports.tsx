@@ -15,7 +15,6 @@ import {
   Warning,
   AccessTime,
   TrendingUp,
-  Payment,
   Gavel,
   Message,
   CheckCircle,
@@ -69,7 +68,6 @@ const StatCard: React.FC<StatCardProps> = ({
   color = "primary",
   secondary,
 }) => {
-  const theme = useTheme();
 
   return (
     <Card
@@ -169,22 +167,29 @@ const TransactionReports: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [ccStatsRes, dashboardRes, escalatedRes] = await Promise.all([
-          getCCstats(),
-          getDashboardStats(),
-          getEscalatedTrades()
+        const [ccRes, dashRes, escRes] = await Promise.all([
+          getCCstats(),             
+          getDashboardStats(),      
+          getEscalatedTrades(),    
         ]);
-        
-        if (ccStatsRes) setStats(ccStatsRes);
-        if (dashboardRes) setDashboardStats(dashboardRes.data);
-        if (escalatedRes) setEscalatedTrades(escalatedRes);
+  
+        if (ccRes && ccRes.data) {
+          setStats(ccRes.data);
+        }
+        if (dashRes && dashRes.data) {
+          setDashboardStats(dashRes.data);
+        }
+        if (escRes && Array.isArray(escRes.data)) {
+          setEscalatedTrades(escRes.data);
+        }
       } catch (error) {
         console.error("Error fetching data:", error);
       }
     };
-
+  
     fetchData();
   }, []);
+  
 
 
   // if (!stats) return <Typography>Loading...</Typography>;

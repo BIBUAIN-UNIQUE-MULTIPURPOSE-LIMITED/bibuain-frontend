@@ -15,21 +15,16 @@ import {
   DialogContent,
   DialogActions,
   Alert,
-  Tooltip,
-  Divider,
 } from "@mui/material";
 import {
   Delete as DeleteIcon,
   Edit as EditIcon,
-  Visibility as ViewIcon,
   Add as AddIcon,
 } from "@mui/icons-material";
-import { FilterIcon } from "lucide-react";
 import { DataGrid } from "@mui/x-data-grid";
 import {
   getAllAccounts,
   deleteAccount,
-  getSingleAccount,
 } from "../../api/account";
 import { useNavigate } from "react-router-dom";
 
@@ -251,9 +246,10 @@ const AllAccounts = () => {
           <DataGrid
             rows={filteredAccounts}
             columns={columns}
-            pageSize={10}
-            rowsPerPageOptions={[10, 25, 50]}
-            disableSelectionOnClick
+            paginationModel={{ pageSize: 10, page: 0 }}
+
+            pageSizeOptions={[10, 25, 50]}
+            disableRowSelectionOnClick
             autoHeight
             loading={loading}
             className="bg-white"
@@ -281,6 +277,7 @@ const AllAccounts = () => {
               },
             }}
           />
+
         </Card>
 
         {/* Delete Dialog - Refined design */}

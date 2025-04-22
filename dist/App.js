@@ -1,0 +1,37 @@
+import { jsx as _jsx, Fragment as _Fragment, jsxs as _jsxs } from "react/jsx-runtime";
+import { Route, Routes } from "react-router-dom";
+import Login from "./Pages/Login";
+import TwoFactorAuth from "./Pages/TwoFactorAuth";
+import LayoutProvider from "./Components/LayoutProvider";
+import Users from "./Pages/Users/UsersPage";
+import UserDetails from "./Pages/Users/UserDetails";
+import CreateUser from "./Pages/Users/CreateUser";
+import Inbox from "./Pages/Inbox/Inbox";
+import Settings from "./Pages/Settings/Settings";
+import Dashboard from "./Pages/Dashboard/Dashboard";
+import { useUserContext } from "./Components/ContextProvider";
+import RaterDashboard from "./Pages/Dashboard/RaterDashboard";
+import PayerDashboard from "./Pages/Dashboard/PayerDashboard";
+import CoinExchange from "./Pages/CoinExchange/CoinExchange";
+import VerifyAccount from "./Pages/VerifyAccount";
+import CustomerCare from "./Pages/CC/CustomerCare";
+import EscalatedDetails from "./Pages/CC/EscalatedDetails";
+import Banks from "./Pages/Bank/Banks";
+import CreateBank from "./Pages/Bank/CreateBank";
+import Notifications from "./Pages/Notifications";
+import NotFound from "./Pages/NotFound";
+import TransactionReports from "./Pages/CC/TransactionReports";
+import TransactionHistory from "./Pages/Payer/TransactionHistory";
+import ForgetPassword from "./Pages/ForgetPasswrod";
+import ResetPassword from "./Pages/ResetPassword";
+import ActivityLogs from "./Pages/ActivityLogs/ActivityLogs";
+import MessageTemplateForm from "./Pages/AutoTemplate/AutoTemplate";
+import AllTemplates from "./Pages/AutoTemplate/AllTemplates";
+import CreateAccounts from "./Pages/Accounts/CreateAccounts";
+import AllAccounts from "./Pages/Accounts/AllAccounts";
+import TradeDetailsPage from "./Pages/CC/TradeDetailsPage";
+function App() {
+    const { user } = useUserContext();
+    return (_jsx(LayoutProvider, { children: _jsxs(Routes, { children: [_jsx(Route, { path: "/login", element: _jsx(Login, {}) }), _jsx(Route, { path: "/2fa", element: _jsx(TwoFactorAuth, {}) }), _jsx(Route, { path: "/verify-account", element: _jsx(VerifyAccount, {}) }), _jsx(Route, { path: "/forget-password", element: _jsx(ForgetPassword, {}) }), _jsx(Route, { path: "/reset-password", element: _jsx(ResetPassword, {}) }), _jsx(Route, { path: "*", element: _jsx(NotFound, {}) }), _jsx(Route, { path: "/notifications", element: _jsx(Notifications, {}) }), _jsx(Route, { path: "/login", element: _jsx(Login, {}) }), user?.userType === "admin" && (_jsxs(_Fragment, { children: [_jsx(Route, { path: "/", element: _jsx(Dashboard, {}) }), _jsx(Route, { path: "/payer", element: _jsx(PayerDashboard, {}) }), _jsx(Route, { path: "/rater", element: _jsx(RaterDashboard, {}) }), _jsx(Route, { path: "/cc", element: _jsx(CustomerCare, {}) })] })), user?.userType === "rater" && (_jsx(Route, { path: "/", element: _jsx(RaterDashboard, {}) })), user?.userType === "payer" && (_jsxs(_Fragment, { children: [_jsx(Route, { path: "/", element: _jsx(PayerDashboard, {}) }), _jsx(Route, { path: "/transaction/history", element: _jsx(TransactionHistory, {}) })] })), user?.userType === "customer-support" && (_jsxs(_Fragment, { children: [_jsx(Route, { path: "/", element: _jsx(TransactionReports, {}) }), _jsx(Route, { path: "/transaction/reports", element: _jsx(TransactionReports, {}) }), _jsx(Route, { path: "/customer-support", element: _jsx(CustomerCare, {}) }), _jsx(Route, { path: "/escalated-trade/:tradeId", element: _jsx(EscalatedDetails, {}) }), _jsx(Route, { path: "/trade/details/:platform/:tradeHash/:accountId", element: _jsx(TradeDetailsPage, {}) })] })), user?.userType === "admin" && (_jsxs(_Fragment, { children: [_jsx(Route, { path: "/admin/users", element: _jsx(Users, {}) }), _jsx(Route, { path: "/admin/message-templates/create", element: _jsx(MessageTemplateForm, {}) }), " ", _jsx(Route, { path: "/admin/message-templates", element: _jsx(AllTemplates, {}) }), _jsx(Route, { path: "/admin/users/:id", element: _jsx(UserDetails, {}) }), _jsx(Route, { path: "/admin/activity-logs", element: _jsx(ActivityLogs, {}) }), _jsx(Route, { path: "/admin/users/create", element: _jsx(CreateUser, {}) }), _jsx(Route, { path: "/transaction/reports", element: _jsx(TransactionReports, {}) }), _jsx(Route, { path: "/customer-support", element: _jsx(CustomerCare, {}) }), _jsx(Route, { path: "/escalated-trade/:tradeId", element: _jsx(EscalatedDetails, {}) }), _jsx(Route, { path: "/admin/account/create", element: _jsx(CreateAccounts, {}) }), _jsx(Route, { path: "/admin/account/all", element: _jsx(AllAccounts, {}) }), _jsx(Route, { path: "/trade/details/:platform/:tradeHash/:accountId", element: _jsx(TradeDetailsPage, {}) })] })), _jsx(Route, { path: "/inbox", element: _jsx(Inbox, {}) }), _jsx(Route, { path: "/exchange", element: _jsx(CoinExchange, {}) }), _jsx(Route, { path: "/banks", element: _jsx(Banks, {}) }), _jsx(Route, { path: "/banks/create", element: _jsx(CreateBank, {}) }), _jsx(Route, { path: "/settings", element: _jsx(Settings, {}) })] }) }));
+}
+export default App;

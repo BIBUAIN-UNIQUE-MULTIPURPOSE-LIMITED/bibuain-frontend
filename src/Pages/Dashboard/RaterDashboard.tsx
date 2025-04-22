@@ -334,7 +334,7 @@ const RaterDashboard = () => {
   const fetchMargin = async () => {
     try {
       const capRes = await getCapRates();
-      if (capRes?.success && capRes.data) {
+      if (capRes && capRes.data) {
         setMargin((capRes.data.btcngnrate));
       }
     } catch (error) {
@@ -517,7 +517,7 @@ const RaterDashboard = () => {
     setMarginLoading(true);
     try {
       const res = await updateCapRates({ btcngnrate: Number(margin) });
-      if (res?.success) {
+      if (res) {
         toast.success("Margin updated successfully");
         // Re-fetch the margin value independently.
         fetchMargin();

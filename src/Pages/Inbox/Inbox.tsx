@@ -117,7 +117,7 @@ const Inbox: React.FC = () => {
   useEffect(() => {
     if (selectedChat && socketRef.current) {
       socketRef.current.emit("joinChat", selectedChat.id);
-  
+
       const handleNewMessage = (newMessage: Message) => {
 
         if (newMessage?.chat?.id === selectedChat.id) {
@@ -125,7 +125,7 @@ const Inbox: React.FC = () => {
             notificationSound.play();
             markMessageAsSeen(newMessage.id);
           }
-          
+
           setMessages(prevMessages => {
             if (prevMessages?.some(msg => msg.id === newMessage.id)) {
               return prevMessages;
@@ -134,9 +134,9 @@ const Inbox: React.FC = () => {
           });
         }
       };
-  
+
       socketRef.current.on("newMessage", handleNewMessage);
-  
+
       return () => {
         socketRef.current.emit("leaveChat", selectedChat.id);
         socketRef.current.off("newMessage", handleNewMessage);
@@ -150,7 +150,7 @@ const Inbox: React.FC = () => {
       try {
         setLoading(true);
         setLoadingUsers(true);
-        
+
         // Fetch all users
         const usersResponse = await getAllUsers();
         if (Array.isArray(usersResponse)) {
@@ -161,12 +161,12 @@ const Inbox: React.FC = () => {
           console.error("Unexpected users response format:", usersResponse);
           setUsers([]);
         }
-        
+
         // Fetch all chats
         const chatsData = await getAllChats();
         if (chatsData?.success && Array.isArray(chatsData.data)) {
           setChats(chatsData.data);
-          
+
           const counts: Record<string, number> = {};
           for (const chat of chatsData.data) {
             const otherParticipant = chat.participants.find((p: User) => p.id !== user?.id);
@@ -189,10 +189,10 @@ const Inbox: React.FC = () => {
           if (chatData?.success) {
             setSelectedChat(chatData.data);
             setMessages(chatData.data.messages);
-            
+
             const unseenMessages = chatData.data.messages
               .filter((msg: Message) => msg?.sender?.id !== user?.id && !msg?.seen);
-            
+
             for (const msg of unseenMessages) {
               await markMessageAsSeen(msg.id);
             }
@@ -207,7 +207,7 @@ const Inbox: React.FC = () => {
         setLoadingUsers(false);
       }
     };
-    
+
     if (user?.id) {
       fetchInitialData();
     }
@@ -216,10 +216,10 @@ const Inbox: React.FC = () => {
   // Periodically check for unseen messages
   useEffect(() => {
     if (!chats || chats.length === 0 || !user?.id) return;
-    
+
     const checkUnseenMessages = async () => {
       const counts: Record<string, number> = {};
-      
+
       for (const chat of chats) {
         const otherParticipant = chat.participants.find((p: User) => p.id !== user?.id);
         if (otherParticipant) {
@@ -229,10 +229,10 @@ const Inbox: React.FC = () => {
           }
         }
       }
-      
+
       setUnseenCounts(counts);
     };
-    
+
     const interval = setInterval(checkUnseenMessages, 30000);
     return () => clearInterval(interval);
   }, [chats, user?.id]);
@@ -247,69 +247,69 @@ const Inbox: React.FC = () => {
     setLoading(true);
     try {
       // Check if a chat already exists with this user
-      let chat = chats?.find(c => 
+      let chat = chats?.find(c =>
         c.participants.some((p: User) => p.id === selectedUser.id)
       );
-  
+
       // If no chat exists, create a new one
       if (!chat) {
         if (!user?.id) {
           throw new Error("Current user not available");
         }
-        
+
         // Include both current user and selected user in participants
         const participants = [user.id, selectedUser.id];
         console.log('Creating new chat with participants:', participants);
-        
+
         const newChatResponse = await createChat(participants);
-        
+
         if (!newChatResponse?.success) {
           throw new Error(newChatResponse?.message || "Failed to create chat");
         }
-        
+
         console.log('New chat created:', newChatResponse.data);
         chat = newChatResponse.data;
-        
+
         // Update chats state
         setChats(prev => prev ? [...prev, chat!] : [chat!]);
       }
-  
+
       // Set the selected chat with null check
       if (!chat) {
         throw new Error("Chat not available");
       }
       setSelectedChat(chat);
       console.log('Selected chat:', chat);
-  
+
       // Fetch messages for this chat
       console.log('Fetching messages for chat:', chat.id);
       const chatData = await getSingleChat(chat.id);
-      
+
       if (!chatData?.success) {
         throw new Error(chatData?.message || "Failed to fetch chat messages");
       }
-      
+
       console.log('Chat messages:', chatData.data.messages);
       setMessages(chatData.data.messages || []);
-      
+
       // Mark messages as seen
       const unseenMessages = chatData.data.messages
         ?.filter((msg: Message) => msg.sender?.id !== user?.id && !msg?.seen) || [];
-      
+
       for (const msg of unseenMessages) {
         await markMessageAsSeen(msg.id);
       }
-      
+
       // Update unseen counts
       setUnseenCounts(prev => ({
         ...prev,
         [selectedUser.id]: 0
       }));
-      
+
       if (isMobile) handleDrawerToggle();
     } catch (error: any) {
       console.error("Error selecting user:", error);
-     
+
     } finally {
       setLoading(false);
     }
@@ -320,7 +320,7 @@ const Inbox: React.FC = () => {
     if (confirmDelete) {
       const response = await deleteMessage(messageId);
       if (response?.success) {
-        setMessages(prevMessages => 
+        setMessages(prevMessages =>
           prevMessages ? prevMessages.filter(msg => msg.id !== messageId) : null
         );
       }
@@ -330,7 +330,7 @@ const Inbox: React.FC = () => {
   if (user === null) {
     return null;
   }
-  
+
   if (loading) return <Loading />;
 
   const getFileIcon = (type: string) => {
@@ -478,8 +478,8 @@ const Inbox: React.FC = () => {
                 </Typography>
               </Box>
               {unseenCounts[userItem.id] > 0 && (
-                <Badge 
-                  badgeContent={unseenCounts[userItem.id]} 
+                <Badge
+                  badgeContent={unseenCounts[userItem.id]}
                   color="primary"
                   sx={{ ml: 1 }}
                 />
@@ -664,7 +664,10 @@ const Inbox: React.FC = () => {
                     }}
                   >
                     {msg.content && (
-                      <Typography variant="body1">{msg?.content}</Typography>
+                      <Typography variant="body1">
+
+                        {String(msg.content)}
+                      </Typography>
                     )}
 
                     {msg?.attachments &&
@@ -674,12 +677,12 @@ const Inbox: React.FC = () => {
                           attachment={attachment}
                         />
                       ))}
-                    
-                    <Box sx={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
+
+                    <Box sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
                       alignItems: 'center',
-                      mt: 0.5 
+                      mt: 0.5
                     }}>
                       <Typography
                         variant="caption"
@@ -693,13 +696,13 @@ const Inbox: React.FC = () => {
                       >
                         {new Date(msg.createdAt).toLocaleTimeString()}
                       </Typography>
-                      
+
                       {msg?.sender?.id === user?.id && (
-                        <IconButton 
-                          size="small" 
+                        <IconButton
+                          size="small"
                           onClick={() => handleDeleteMessage(msg.id)}
-                          sx={{ 
-                            opacity: 0.7, 
+                          sx={{
+                            opacity: 0.7,
                             '&:hover': { opacity: 1 },
                             p: 0.5,
                             ml: 1,
