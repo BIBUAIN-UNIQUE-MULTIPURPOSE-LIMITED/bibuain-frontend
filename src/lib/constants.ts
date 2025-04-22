@@ -1,8 +1,8 @@
 // export const BASE_URL = "https://r845fh.bibuain.ng/api/v1";
 // export const SOCKET_BASE_URL = "https://r845fh.bibuain.ng";
 
-export const BASE_URL = "https://bibuain-backend-zpmm.onrender.com/api/v1";
-export const SOCKET_BASE_URL = "https://bibuain-backend-zpmm.onrender.com";
+export const BASE_URL = "https://bibuain-backend-jhq3.onrender.com/api/v1";
+export const SOCKET_BASE_URL = "https://bibuain-backend-jhq3.onrender.com";
 
 // export const BASE_URL = "http://localhost:7001/api/v1";
 // export const SOCKET_BASE_URL = "http://localhost:7001";

@@ -67,6 +67,9 @@ export interface Attachment {
 // }
 
 export interface Message {
+  seen: any;
+  chat: any;
+  attachments: any;
   id: string;
   createdAt: string;
   content: MessageContent;

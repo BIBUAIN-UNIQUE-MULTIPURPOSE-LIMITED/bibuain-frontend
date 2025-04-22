@@ -85,7 +85,7 @@ const Inbox: React.FC = () => {
   // Initialize socket connection
   useEffect(() => {
     // socketRef.current = io("https://r845fh.bibuain.ng"); 
-    socketRef.current = io("https://bibuain-backend-zpmm.onrender.com");
+    socketRef.current = io("https://bibuain-backend-jhq3.onrender.com");
 
     if (user?.id) {
       socketRef.current.emit("join", user.id);
