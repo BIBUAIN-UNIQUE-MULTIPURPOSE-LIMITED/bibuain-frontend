@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { jsPDF } from "jspdf";
-import "jspdf-autotable";
+import pdfMake from 'pdfmake/build/pdfmake';
+import pdfFonts from 'pdfmake/build/vfs_fonts';
+
+// Initialize pdfMake
+pdfMake.vfs = pdfFonts.pdfMake.vfs;
 
 // Define the interfaces used in the export (if needed)
 interface ComplaintData {
@@ -143,8 +146,6 @@ export const exportToPDF = (
   data: any[],
   type: "completedTrades" | "escalatedTrades" | "allTrades"
 ) => {
-  const doc = new jsPDF();
-
   let title = "";
   let headers: string[] = [];
   let tableData: any[] = [];
@@ -215,26 +216,32 @@ export const exportToPDF = (
     ]);
   }
 
-  doc.setFontSize(16);
-  doc.text(title, 14, 15);
-
-  doc.setFontSize(10);
-  doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 25);
-
-  (doc as any).autoTable({
-    head: [headers],
-    body: tableData,
-    startY: 35,
+  // Create the document definition
+  const docDefinition = {
+    content: [
+      { text: title, style: 'header' },
+      { text: `Generated on: ${new Date().toLocaleString()}`, style: 'subheader' },
+      {
+        table: {
+          headerRows: 1,
+          body: [headers, ...tableData]
+        },
+        layout: 'lightHorizontalLines'
+      }
+    ],
     styles: {
-      fontSize: 8,
-      cellPadding: 2,
-    },
-    // Adjust column styles as needed. For example:
-    columnStyles: {
-      0: { cellWidth: 25 },
-      7: { cellWidth: 40 },
-    },
-  });
+      header: {
+        fontSize: 16,
+        bold: true,
+        margin: [0, 0, 0, 10]
+      },
+      subheader: {
+        fontSize: 10,
+        margin: [0, 0, 0, 20]
+      }
+    }
+  };
 
-  doc.save(`${type}_${new Date().toISOString().split("T")[0]}.pdf`);
+  // Generate the PDF and download it
+  pdfMake.createPdf(docDefinition).download(`${type}_${new Date().toISOString().split("T")[0]}.pdf`);
 };
