@@ -326,9 +326,9 @@ const TransactionHistory: React.FC = () => {
                     <TableCell>
                       <Chip label={`${tx.payerSpeed}s`} size="small" color={tx.payerSpeed < 90 ? "success" : "warning"} sx={{ minWidth: 70 }} />
                     </TableCell>
-                    <TableCell>{tx.ngnSellingPrice}</TableCell>
-                    <TableCell>{tx.ngnCostPrice}</TableCell>
-                    <TableCell>{tx.usdCost}</TableCell>
+                    <TableCell>{tx.ngnSellingPrice.toLocaleString()}</TableCell>
+                    <TableCell>{tx.ngnCostPrice.toLocaleString()}</TableCell>
+                    <TableCell>{tx.usdCost.toLocaleString()}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

@@ -215,13 +215,13 @@ const PayerDashboard = () => {
       if (tradeData?.success) {
         const newTrade = tradeData.data;
 
-        // Keep existing data during updates if there's no new data
-        if (newTrade.status === "escalated" ||
-          newTrade.status === "paid" ||
-          newTrade.status === "completed") {
-          setAssignedTrade(null);
-          return;
-        }
+        if (
+        ["escalated", "paid", "completed", "successful", "cancelled"].includes(tradeData.data?.status)) {
+      setAssignedTrade(null);
+      setPaymentInfo({});
+      setMessages([]);
+      return;
+    }
 
         // Only update the assigned trade if it's changed
         setAssignedTrade(prevTrade => {
@@ -587,7 +587,7 @@ const PayerDashboard = () => {
                 <div className="space-y-2">
                   <p className="text-sm text-gray-500">Dollar Rate</p>
                   <h3 className="text-lg font-semibold text-gray-800">
-                    {paymentInfo?.dollarRate ? Number(paymentInfo.dollarRate).toLocaleString() : "N/A"}
+                    {paymentInfo?.dollarRate ? Number(paymentInfo.dollarRate).toFixed(2) : "N/A"}
                   </h3>
                 </div>
                 <div className="space-y-2">

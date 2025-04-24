@@ -43,7 +43,7 @@ import {
 } from "../../api/trade";
 import { createNotification } from "../../api/user";
 import { exportToCSV, exportToPDF } from "../../lib/reportExporter";
-import { formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { enUS } from "date-fns/locale";
 
 interface TabPanelProps {
@@ -141,26 +141,26 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index, ...other })
   );
 };
 
- const formatDate = (date: Date | string) => {
-    try {
-      const dateObj = typeof date === 'string' ? new Date(date) : date;
-      
-      if (isNaN(dateObj.getTime())) {
-        return 'Invalid date';
-      }
-        
-      const watDate = new Date(dateObj.getTime() + 60 * 60 * 1000);
-      const relativeTime = formatDistanceToNow(watDate, {
-        addSuffix: false,
-        locale: enUS
-      });
-  
-      return `${relativeTime}`;
-    } catch (error) {
-      console.error('Error formatting date:', error);
+const formatDate = (date: Date | string) => {
+  try {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(dateObj.getTime())) {
       return 'Invalid date';
     }
-  };
+
+    // 1) format absolute time as h.mm a  (produces “2.53 pm”)
+    const timeString = format(dateObj, 'h.mm a', { locale: enUS });
+
+    // 2) format relative time as “2 mins ago”
+    const relative = formatDistanceToNow(dateObj, { addSuffix: true, locale: enUS });
+
+    // 3) combine
+    return `${timeString} (${relative})`;
+  } catch (err) {
+    console.error('Error formatting date:', err);
+    return 'Invalid date';
+  }
+};
 
 
 const CustomerSupport: React.FC = () => {
@@ -181,6 +181,7 @@ const CustomerSupport: React.FC = () => {
   const [filter, setFilter] = useState<"latest" | "oldest" | "">("");
   const previousMessageCounts = useRef<Record<string, number>>({});
   const initialLoad = useRef(true);
+  const refreshInterval = useRef<NodeJS.Timeout | null>(null); 
   
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
@@ -203,8 +204,8 @@ const CustomerSupport: React.FC = () => {
     }
   };
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = async (showLoader = false) => {
+    if (showLoader) setLoading(true);
     try {
       const [esData, compData, allData] = await Promise.all([getEscalatedTrades(), getCompletedTrades({}), getAllTrades()]);
       if (esData?.success) {
@@ -246,16 +247,16 @@ const CustomerSupport: React.FC = () => {
         const mapped = arr.map((t: any) => ({
           id: t.id,
           tradeHash: t.tradeHash,
-          platform: t.platform,
+          platform: t.platform || 'Unknown',
           amount: t.amount || 0,
-          status: t.tradeStatus || t.status,
-          createdAt: t.createdAt,
-          ownerUsername: t.accountId,
-          responderUsername: t.assignedPayer?.fullName || t.assignedPayer?.id,
-          cryptoCurrencyCode: t.cryptoCurrencyCode,
-          fiatCurrency: t.fiatCurrency,
-          paymentMethod: t.paymentMethod,
-          accountId: t.accountId,
+          status: t.status || 'Unknown',
+          createdAt: t.createdAt || new Date().toISOString(),
+          ownerUsername: t.ownerUsername || 'N/A',
+          responderUsername: t.assignedPayer?.fullName || t.responderUsername || 'N/A',
+          cryptoCurrencyCode: t.cryptoCurrencyCode || 'N/A',
+          fiatCurrency: t.fiatCurrency || 'N/A',
+          paymentMethod: t.paymentMethod || 'N/A',
+          accountId: t.accountId || (t.trade && t.trade.accountId) || t.account_id,
           messageCount: t.messageCount || 0,
           hasNewMessages: (t.messageCount || 0) > 0,
           isLive: t.isLive || false,
@@ -266,7 +267,7 @@ const CustomerSupport: React.FC = () => {
     } catch (err) {
       console.error("Fetch error:", err);
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
     }
   };
 
@@ -286,24 +287,44 @@ const CustomerSupport: React.FC = () => {
     }
   };
 
+  
   const checkForNewMessages = (trades: Trade[]) => {
     if (initialLoad.current) {
       initialLoad.current = false;
-      previousMessageCounts.current = trades.reduce((acc, t) => ({ ...acc, [t.tradeHash || '']: t.messageCount || 0 }), {});
+      previousMessageCounts.current = trades.reduce((acc, t) => {
+        const key = t.tradeHash || t.id || '';
+        return { ...acc, [key]: t.messageCount || 0 };
+      }, {});
       return;
     }
+    
     trades.forEach(t => {
-      const key = t.tradeHash || '';
+      const key = t.tradeHash || t.id || '';
       const prev = previousMessageCounts.current[key] || 0;
       const curr = t.messageCount || 0;
       if (curr > prev && t.responderUsername) sendNotification(t, curr - prev);
     });
-    previousMessageCounts.current = trades.reduce((acc, t) => ({ ...acc, [t.tradeHash || '']: t.messageCount || 0 }), {});
+    
+    previousMessageCounts.current = trades.reduce((acc, t) => {
+      const key = t.tradeHash || t.id || '';
+      return { ...acc, [key]: t.messageCount || 0 };
+    }, {});
   };
 
+
   useEffect(() => {
-    fetchData();
+    fetchData(true); 
+    refreshInterval.current = setInterval(() => {
+      fetchData(false);
+    }, 3000);
+  
+    return () => {
+      if (refreshInterval.current) {
+        clearInterval(refreshInterval.current);
+      }
+    };
   }, []);
+  
 
 
   const handleFilterClick = (event: React.MouseEvent<HTMLElement>) => {
@@ -403,14 +424,7 @@ const CustomerSupport: React.FC = () => {
   const filteredAllTrades = filterAndSortData(allTrades);
 
   const refreshData = async () => {
-    setLoading(true);
-    try {
-      await fetchData();
-    } catch (error) {
-      console.error("Error refreshing data:", error);
-    } finally {
-      setLoading(false);
-    }
+    await fetchData(true).catch(err => console.error("Error refreshing data:", err));
   };
 
   if (loading) {
