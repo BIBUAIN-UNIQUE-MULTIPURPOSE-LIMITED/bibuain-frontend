@@ -7,12 +7,12 @@
 // export const BASE_URL = "https://bibuain-backend.onrender.com/api/v1";
 // export const SOCKET_BASE_URL = "https://bibuain-backend.onrender.com";
 
-// export const BASE_URL = "http://localhost:7001/api/v1";
-// export const SOCKET_BASE_URL = "http://localhost:7001";
+export const BASE_URL = "http://localhost:7001/api/v1";
+export const SOCKET_BASE_URL = "http://localhost:7001";
 export const successStyles = {
   style: {
     maxWidth: "50rem",
-    backgroundColor: "#22C55E", // A pleasant, professional green
+    backgroundColor: "#22C55E",
     color: "#FFFFFF",
     borderRadius: "12px",
     padding: "12px 16px",
