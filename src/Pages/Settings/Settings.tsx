@@ -25,7 +25,6 @@ import {
   Security as SecurityIcon,
   Email as EmailIcon,
   Phone as PhoneIcon,
-  Language as LanguageIcon,
   Lock as LockIcon,
   Key as KeyIcon,
 } from "@mui/icons-material";

@@ -64,7 +64,8 @@ const VerifyAccount: React.FC = () => {
       return;
     }
     setCode(code);
-  }, []);
+  }, [navigate, searchParams]);
+  
   return (
     <Container
       maxWidth="sm"

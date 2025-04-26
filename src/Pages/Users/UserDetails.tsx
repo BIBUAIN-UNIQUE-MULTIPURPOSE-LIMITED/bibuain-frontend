@@ -12,7 +12,6 @@ import {
   Avatar,
   Grid,
   Paper,
-  Divider,
   Stack,
   useTheme,
   alpha,
@@ -24,117 +23,43 @@ import {
   Shield as ShieldIcon,
   Phone as PhoneIcon,
   Email as EmailIcon,
-  Timeline as ActivityIcon,
-  History as HistoryIcon,
-  Warning as AlertCircleIcon,
   AccessTime as ClockIcon,
-  Warning as WarningIcon,
-  Timer as TimerIcon,
-  CheckCircle as CheckIcon,
-  Schedule as ScheduleIcon,
-  PlayCircleOutline as StartIcon,
-  StopCircleOutlined as StopIcon,
-  LocalCafe as BreakIcon,
   VerifiedUser as ShieldCheckIcon,
-  MoreVert as MoreVertIcon,
-  Done as ApproveIcon,
-  Close as RejectIcon,
 } from "@mui/icons-material";
 import { User } from "../../lib/interface";
 import { getSingleUser } from "../../api/user";
 import { useNavigate, useParams } from "react-router-dom";
 import Loading from "../../Components/Loading";
 import { deleteUser } from "../../api/admin";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  IconButton,
-  MenuItem,
-  Menu,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-} from "@mui/material";
 import TimeAttendancePanel from "../../Components/TimeAttendancePanel";
 
-interface UserDetailsProps {
-  user?: User;
-}
+// interface UserDetailsProps {
+//   user?: User;
+// }
+
 interface TabPanelProps {
   children?: React.ReactNode;
   value: number;
   index: number;
 }
-interface ShiftReport {
-  id: string;
-  userName: string;
-  userRole: "Rater" | "Payer" | "Admin";
-  shiftType: string;
-  scheduledStart: string;
-  scheduledEnd: string;
-  clockIn: string;
-  clockOut: string | null;
-  breaks: { start: string; end: string }[];
-  lateDuration: number;
-  overtimeDuration: number;
-  status: "active" | "pending_approval" | "approved" | "rejected";
-  totalHours: number;
-  notes?: string;
-}
 
-const sampleShiftReports: ShiftReport[] = [
-  {
-    id: "1",
-    userName: "John Doe",
-    userRole: "Payer",
-    shiftType: "Morning (8 AM–3 PM)",
-    scheduledStart: "08:00",
-    scheduledEnd: "15:00",
-    clockIn: "08:15",
-    clockOut: "15:00",
-    breaks: [{ start: "11:30", end: "12:00" }],
-    lateDuration: 15,
-    overtimeDuration: 0,
-    status: "pending_approval",
-    totalHours: 6.5,
-    notes: "Traffic delay",
-  },
-  {
-    id: "2",
-    userName: "Jane Smith",
-    userRole: "Rater",
-    shiftType: "Night (9 PM–8 AM)",
-    scheduledStart: "21:00",
-    scheduledEnd: "08:00",
-    clockIn: "21:00",
-    clockOut: "08:30",
-    breaks: [{ start: "01:00", end: "02:00" }],
-    lateDuration: 0,
-    overtimeDuration: 30,
-    status: "approved",
-    totalHours: 10.5,
-  },
-  {
-    id: "3",
-    userName: "Mike Wilson",
-    userRole: "Rater",
-    shiftType: "Morning (8 AM–3 PM)",
-    scheduledStart: "08:00",
-    scheduledEnd: "15:00",
-    clockIn: "08:00",
-    clockOut: null,
-    breaks: [],
-    lateDuration: 0,
-    overtimeDuration: 0,
-    status: "active",
-    totalHours: 0,
-  },
-];
+// interface ShiftReport {
+//   id: string;
+//   userName: string;
+//   userRole: "Rater" | "Payer" | "Admin";
+//   shiftType: string;
+//   scheduledStart: string;
+//   scheduledEnd: string;
+//   clockIn: string;
+//   clockOut: string | null;
+//   breaks: { start: string; end: string }[];
+//   lateDuration: number;
+//   overtimeDuration: number;
+//   status: "active" | "pending_approval" | "approved" | "rejected";
+//   totalHours: number;
+//   notes?: string;
+// }
+
 
 const TabPanel: React.FC<TabPanelProps> = (props) => {
   const { children, value, index, ...other } = props;
@@ -151,6 +76,7 @@ const TabPanel: React.FC<TabPanelProps> = (props) => {
     </div>
   );
 };
+
 // const TimeAttendancePanel: React.FC = () => {
 //   const theme = useTheme();
 //   const [selectedReport, setSelectedReport] = useState<ShiftReport | null>(
@@ -530,7 +456,7 @@ const UserDetails: React.FC = () => {
       }
     };
     fetch();
-  }, []);
+  }, [id, navigate]);
 
   if (loading) {
     return <Loading />;

@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { ReactNode, useEffect, useRef } from "react";
 import { useUserContext } from "./ContextProvider";
 import { useNavigate } from "react-router-dom";
@@ -14,9 +15,7 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const {
     user,
     loading,
-    onlineUsers,
     setOnlineUsers,
-    notifications,
     setNotifications,
   } = useUserContext();
 

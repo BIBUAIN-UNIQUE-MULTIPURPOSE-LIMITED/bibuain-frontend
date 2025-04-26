@@ -9,7 +9,7 @@ import React, {
 import toast from "react-hot-toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { MdLockOutline } from "react-icons/md";
-import { handleApiError, verify2fa } from "../api/user";
+import { handleApiError } from "../api/user";
 import { useUserContext } from "../Components/ContextProvider";
 import { ResInterface } from "../lib/interface";
 import { BASE_URL, loadingStyles, successStyles } from "../lib/constants";
@@ -97,7 +97,8 @@ const TwoFactorAuth: React.FC = () => {
     } else {
       setEmail(email);
     }
-  }, []);
+  }, [navigate, searchParams, user]);
+  
   return (
     <div className="w-[100vw] min-h-[100vh] flex flex-col md:flex-row justify-between items-center bg-white">
       <div

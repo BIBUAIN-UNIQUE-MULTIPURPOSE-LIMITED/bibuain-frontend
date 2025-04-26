@@ -45,7 +45,7 @@ const UsersTable = () => {
     return () => {
       document.removeEventListener("click", handleClickOutside);
     };
-  }, []);
+  }, [loading, navigate, user]);
 
   const handleCreateChat = async (participants: string[]) => {
     const data = await createChat(participants);

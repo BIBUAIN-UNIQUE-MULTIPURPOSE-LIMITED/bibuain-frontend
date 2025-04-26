@@ -59,7 +59,7 @@ const CreateBank: React.FC = () => {
             setFormData(bankData);
           }
         } catch (err) {
-          setError("Failed to fetch bank details");
+          setError(`Failed to fetch bank details: ${err}`);
         } finally {
           setLoading(false);
         }
@@ -94,7 +94,7 @@ const CreateBank: React.FC = () => {
         }
       }
     } catch (err) {
-      setError("Failed to save bank details");
+      setError(`Failed to save bank details : ${err}`);
     } finally {
       setLoading(false);
     }

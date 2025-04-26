@@ -2,7 +2,7 @@
 import { api, handleApiError } from "./user";
 import { ResInterface } from "../lib/interface";
 import toast from "react-hot-toast";
-import { loadingStyles, successStyles, errorStyles } from "../lib/constants";
+import { loadingStyles, successStyles } from "../lib/constants";
 
 export interface AccountCreateData {
   account_username: string;

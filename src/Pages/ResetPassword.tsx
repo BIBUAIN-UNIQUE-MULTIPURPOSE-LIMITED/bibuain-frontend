@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useEffect, useState } from "react";
 import {
   Card,
@@ -22,7 +23,7 @@ const ResetPassword = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isSubmitted, _setIsSubmitted] = useState(false);
   const [code, setCode] = useState<string | null>(null);
   const [errors, setErrors] = useState({
     password: "",
@@ -60,7 +61,7 @@ const ResetPassword = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    let newErrors = {
+    const newErrors = {
       password: "",
       confirmPassword: "",
     };

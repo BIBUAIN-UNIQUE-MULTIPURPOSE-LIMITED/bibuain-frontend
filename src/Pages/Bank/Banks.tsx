@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useEffect, useState } from "react";
 import {
   Paper,
@@ -39,7 +41,7 @@ interface Bank {
 
 const Banks = () => {
   const [anchorEl, setAnchorEl] = useState(null);
-  const [selectedBank, setSelectedBank] = useState(null);
+  const [_selectedBank, setSelectedBank] = useState(null);
   const [banks, setBanks] = useState<Bank[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const { user } = useUserContext();

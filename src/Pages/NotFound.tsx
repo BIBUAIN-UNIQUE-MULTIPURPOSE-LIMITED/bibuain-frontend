@@ -4,7 +4,6 @@ import {
   Home,
   ArrowRight,
   AlertCircle,
-  Search,
 } from "lucide-react";
 
 const NotFound: React.FC = () => {

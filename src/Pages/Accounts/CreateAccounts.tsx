@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { data, useLocation, useNavigate } from "react-router-dom";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   createAccount,
   updateAccount,
@@ -8,7 +9,6 @@ import {
 import {
   Card,
   CardContent,
-  Typography,
   TextField,
   MenuItem,
   Button,
@@ -148,7 +148,7 @@ const CreateAccounts = () => {
     if (accountId) {
       fetchAccountDetails(accountId);
     }
-  }, []);
+  }, [accountId]);
 
   return (
     <Container maxWidth={false} className="min-h-screen py-12 px-4">

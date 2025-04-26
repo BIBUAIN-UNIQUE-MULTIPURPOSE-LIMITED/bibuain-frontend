@@ -4,7 +4,7 @@ import { BASE_URL, loadingStyles, successStyles } from "../lib/constants";
 import React, { useEffect, useState, FormEvent } from "react";
 import toast from "react-hot-toast";
 import { MdEmail, MdLock, MdVisibility, MdVisibilityOff } from "react-icons/md";
-import { data, Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useUserContext } from "../Components/ContextProvider";
 
@@ -13,7 +13,7 @@ const Login: React.FC = () => {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
-  const { user, setUser } = useUserContext();
+  const { user } = useUserContext();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {

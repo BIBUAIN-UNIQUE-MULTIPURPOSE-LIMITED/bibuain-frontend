@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   Bell,
   Check,
   Clock,
   Info,
-  AlertTriangle,
   Trash2,
   AlertCircle,
   User as UserIcon,
@@ -88,7 +87,7 @@ const Notifications: React.FC = () => {
         notifications?.map((notif) => ({ ...notif, read: true }))
       );
     } catch (err) {
-      setError("Failed to mark notifications as read");
+      setError(`Failed to mark notifications as read : ${err}`);
     }
   };
 
@@ -102,7 +101,7 @@ const Notifications: React.FC = () => {
         )
       );
     } catch (err) {
-      setError("Failed to mark notification as read");
+      setError(`Failed to mark notification as read : ${err}`);
     }
   };
 
@@ -117,7 +116,7 @@ const Notifications: React.FC = () => {
         setIsDeleting(null);
       }, 300);
     } catch (err) {
-      setError("Failed to delete notification");
+      setError(`Failed to delete notification :${err}`);
       setIsDeleting(null);
     }
   };

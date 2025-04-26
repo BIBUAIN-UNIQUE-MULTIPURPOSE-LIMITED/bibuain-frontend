@@ -9,23 +9,19 @@ import {
   Box as MuiBox,
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
-import { RefreshCw, Wallet } from "lucide-react";
+// import {
+//   AreaChart,
+//   Area,
+//   XAxis,
+//   YAxis,
+//   CartesianGrid,
+//   Tooltip,
+//   ResponsiveContainer,
+// } from "recharts";
+import { RefreshCw } from "lucide-react";
 import CurrencyBitcoinIcon from "@mui/icons-material/CurrencyBitcoin";
-import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
-import TimelineIcon from "@mui/icons-material/Timeline";
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
-import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
-import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 
 // Types
 interface PlatformData {
@@ -59,7 +55,7 @@ interface MockData {
 }
 
 // Styled Components
-const AnimatedValue = styled(Typography)(({ theme }) => ({
+const AnimatedValue = styled(Typography)(() => ({
   transition: "all 0.3s ease-in-out",
   "&:hover": {
     transform: "scale(1.02)",
@@ -90,17 +86,19 @@ const MetricCard = styled(MuiBox)(({ theme }) => ({
   backdropFilter: "blur(10px)",
 }));
 
-const StyledChip = styled("div")(({ theme }) => ({
-  padding: "4px 12px",
-  borderRadius: "8px",
-  fontSize: "0.75rem",
-  fontWeight: 600,
-  display: "inline-flex",
-  alignItems: "center",
-  gap: "4px",
-}));
+// const StyledChip = styled("div")(({ theme }) => ({
+//   padding: "4px 12px",
+//   borderRadius: "8px",
+//   fontSize: "0.75rem",
+//   fontWeight: 600,
+//   display: "inline-flex",
+//   alignItems: "center",
+//   gap: "4px",
+// }));
 
 // Utility Functions
+
+
 const formatCurrency = (value: number): string => {
   return new Intl.NumberFormat("en-US", {
     style: "currency",

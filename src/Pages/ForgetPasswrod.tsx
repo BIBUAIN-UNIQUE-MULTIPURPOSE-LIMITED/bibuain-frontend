@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -6,7 +7,6 @@ import {
   Button,
   Typography,
   Alert,
-  IconButton,
   InputAdornment,
   Box,
 } from "@mui/material";
@@ -49,7 +49,7 @@ const ForgetPassword = () => {
       return;
     } catch (error) {
       toast.dismiss();
-      setError("Failed to send reset link. Please try again.");
+      setError(`Failed to send reset link. Please try again. ${error}`);
     }
   };
 

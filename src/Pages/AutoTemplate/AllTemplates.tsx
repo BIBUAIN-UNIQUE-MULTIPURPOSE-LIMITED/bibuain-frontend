@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Paper,
@@ -22,7 +24,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Box,
   Tooltip,
   CircularProgress,
 } from "@mui/material";
@@ -31,9 +32,6 @@ import {
   Delete as DeleteIcon,
   Add as AddIcon,
   Search as SearchIcon,
-  FilterList as FilterIcon,
-  VisibilityOff as InactiveIcon,
-  Visibility as ActiveIcon,
 } from "@mui/icons-material";
 import {
   getAllTemplates,
