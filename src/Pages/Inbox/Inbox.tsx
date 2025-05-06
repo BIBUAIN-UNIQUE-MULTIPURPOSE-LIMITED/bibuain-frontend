@@ -64,6 +64,7 @@ const Inbox: React.FC = () => {
   const { onlineUsers, setOnlineUsers } = useUserContext();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
   const socketRef = useRef<any>(null);
   const [unseenCounts, setUnseenCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);

@@ -80,7 +80,8 @@ const RaterDashboard = () => {
   const { user } = useUserContext();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [autoUpdate, setAutoUpdate] = useState(true);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [autoUpdate, _setAutoUpdate] = useState(true);
 
   const [margin, setMargin] = useState('0');
 
@@ -104,6 +105,7 @@ const RaterDashboard = () => {
 
   const updatingOffersRef = useRef(false);
   const [savingRates, setSavingRates] = useState(false);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   // Rate States (global/live rates)
   const [rates, setRates] = useState({
@@ -237,6 +239,7 @@ const RaterDashboard = () => {
       if (response?.success) {
         toast.success("Rates saved successfully!", successStyles);
         
+
         // After successfully saving rates, check if any markup2 is zero
         const anyZero = Object.values(platformRates).some(
           (rate) => Number(rate.markup2) === 0
@@ -249,6 +252,7 @@ const RaterDashboard = () => {
           setPendingOfferValue(true);
           setOfferModalOpen(true);
         }
+        await updateOffersCalculation();
       } else {
         toast.error("Failed to save rates");
       }
@@ -262,6 +266,10 @@ const RaterDashboard = () => {
   }, [calculatedRates, usdtNgnRate, platformRates, offersActive]);
 
   const updateOffersCalculation = useCallback(async () => {
+    if (updatingOffersRef.current) {
+      // console.log("Skipping updateOffersCalculation: already running");
+      return;
+    }
     updatingOffersRef.current = true;
 
     try {
@@ -297,7 +305,7 @@ const RaterDashboard = () => {
               return false;
             }
             const { data } = response;
-            console.log(`Response for ${account.account_username}:`, data);
+            // console.log(`Response for ${account.account_username}:`, data);
 
             if (data && data.success) {
               console.log(`Successfully updated offers for ${account.account_username}`);
@@ -335,7 +343,7 @@ const RaterDashboard = () => {
     try {
       const capRes = await getCapRates();
       if (capRes && capRes.data) {
-        setMargin((capRes.data.btcngnrate));
+        setMargin(Number(capRes.data.btcngnrate).toFixed(0));
       }
     } catch (error) {
       console.error("Error fetching margin:", error);
@@ -348,7 +356,7 @@ const RaterDashboard = () => {
     try {
       const res = await getOffersMargin();
       if (res?.success) {
-        console.log("Margin Data Received:", res.data);
+        // console.log("Margin Data Received:", res.data);
         setMarginData(res.data);
       } else {
         console.error("Margin data fetch failed:", res);
@@ -413,24 +421,44 @@ const RaterDashboard = () => {
     };
   }, [autoUpdate]);
 
+
   useEffect(() => {
-    let interval: number | undefined;
+    if (
+      !autoUpdate || 
+      !initialLoadDone || 
+      updatingOffersRef.current
+    ) {
+      return;
+    }
+    updateOffersCalculation();
+  }, [
+    autoUpdate,
+    initialLoadDone,
+    accounts,
+    calculatedRates,
+    margin,
+    platformRates
+  ]);
+
+
+  useEffect(() => {
+    if (!autoUpdate) return;
 
     const refreshData = async () => {
-
-      await updateOffersCalculation();
+      await fetchAccounts();
+      await fetchRates();
+      await fetchMargin();
+      await fetchMarginData();
+      setInitialLoadDone(true);          
     };
 
-    if (autoUpdate) {
-      refreshData(); // Initial fetch
-
-      interval = window.setInterval(refreshData, 100000);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
+    refreshData();                    
+    const id = window.setInterval(refreshData, 100_000);
+    return () => clearInterval(id);
   }, [autoUpdate]);
+  
+
+
 
   // Persist offersActive to localStorage on change
   useEffect(() => {
@@ -626,7 +654,7 @@ const RaterDashboard = () => {
           </div>
 
           <div className="space-y-4">
-            <div className="bg-gray-50 p-4 rounded-lg">
+            {/* <div className="bg-gray-50 p-4 rounded-lg">
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-sm text-gray-500">Auto Update</span>
@@ -639,7 +667,7 @@ const RaterDashboard = () => {
                   onChange={(e) => setAutoUpdate(e.target.checked)}
                 />
               </div>
-            </div>
+            </div> */}
 
             <div className="bg-gray-50 p-4 rounded-lg">
               <div className="flex items-center justify-between">
@@ -793,8 +821,8 @@ const RaterDashboard = () => {
               </TableBody>
             </Table>
 
-            {/* 
-<Button
+          
+{/* <Button
   variant="contained"
   onClick={handleReactivateDeactivated}
   disabled={reactivatingLoading}
@@ -803,7 +831,7 @@ const RaterDashboard = () => {
   {reactivatingLoading
     ? <CircularProgress size={20} color="inherit" />
     : "Reactivate Deactivated Offers"}
-</Button> */}
+</Button>  */}
 
           </div>
         </div>

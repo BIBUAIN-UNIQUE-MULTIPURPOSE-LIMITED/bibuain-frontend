@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import {
   Box,
   Card,
@@ -39,12 +39,15 @@ import { format } from "date-fns";
 import EscalateTrade from "../Payer/EscalateTrade";
 import { useUserContext } from "../../Components/ContextProvider";
 import { ITrade, Message, Attachment } from "../../lib/interface";
-import { getPayerTrade, getTradeDetails, markTradeAsPaid } from "../../api/trade";
+import { getPayerTrade, getTradeDetails, markTradeAsPaid, getPlatformCostPrice } from "../../api/trade";
 import toast from "react-hot-toast";
-import { successStyles } from "../../lib/constants";
+import { successStyles, SOCKET_BASE_URL } from "../../lib/constants";
 import { CreditCardIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getCurrentShift } from "../../api/shift";
+import { io, Socket } from "socket.io-client";
+import isEqual from "lodash/isEqual"; 
+
 
 // Styled components
 const MessageContainer = styled(Box)(({ theme }) => ({
@@ -84,7 +87,7 @@ interface PaymentInfo {
 
 const PayerDashboard = () => {
   // Local state for trade/chat data
-  
+
   const [flagDialogOpen, setFlagDialogOpen] = useState(false);
   const [flagReason, setFlagReason] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -102,6 +105,10 @@ const PayerDashboard = () => {
   const [isUserClockedIn, setIsUserClockedIn] = useState<boolean | null>(null);
   const [isCheckingClockStatus, setIsCheckingClockStatus] = useState(true);
 
+  const [elapsed, setElapsed] = useState<number>(0);
+  const [costPrice, setCostPrice] = useState<number | null>(null);
+
+  const socketRef = useRef<Socket>();
   // const theme = useTheme();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -113,204 +120,137 @@ const PayerDashboard = () => {
     scrollToBottom();
   }, [messages]);
 
+  const accountName = useMemo(() => {
+    return assignedTrade?.platformMetadata?.accountUsername || 
+           paymentInfo?.buyer_name || 
+           "N/A";
+  }, [
+    assignedTrade?.platformMetadata?.accountUsername, 
+    paymentInfo?.buyer_name
+  ]);
 
-  // const fetchTradeData = async (isInitial = false) => {
-  //   try {
-  //     if (isInitial) setInitialLoading(true);
-
-  //     const tradeData = await getPayerTrade(user?.id || "");
-  //     if (tradeData?.success) {
-  //       const newTrade = tradeData.data;
-
-  //       console.log("Upper New trade staus: ", newTrade.status)
-
-  //       if (newTrade.status === "escalated") {
-  //         setAssignedTrade(null);
-  //         console.log("New trade staus: ", newTrade.status)
-  //         return;
-  //       }
-
-  //       if (newTrade.status === "paid" || newTrade.status === "completed") {
-  //         setAssignedTrade(null);
-  //         console.log("New trade staus: ", newTrade.status)
-  //         return;
-  //       }
-
-
-  //       // if (isTradeDataDifferent(newTrade, assignedTrade)) 
-  //       setAssignedTrade(newTrade);
-
-  //       const detailsResponse = await getTradeDetails(
-  //         newTrade.platform,
-  //         newTrade.tradeHash,
-  //         newTrade.accountId
-  //       );
-
-  //       if (detailsResponse?.data) {
-  //         const { externalTrade, tradeChat } = detailsResponse.data;
-
-  //         // 1) pull raw messages & attachments
-  //         const msgs = Array.isArray(tradeChat?.messages)
-  //           ? tradeChat.messages
-  //           : [];
-  //         const atts = Array.isArray(tradeChat?.attachments)
-  //           ? tradeChat.attachments
-  //           : [];
-
-  //         // 2) find first message carrying bank_account payload
-  //         const bankMsg = msgs.find(
-  //           (m: { content: any; }) =>
-  //             m.content &&
-  //             typeof m.content === "object" &&
-  //             (m.content as any).bank_account
-  //         );
-  //         const ba = bankMsg ? (bankMsg.content as any).bank_account : {};
-
-  //         // 3) merge chat‑derived bank info over externalTrade
-  //         setPaymentInfo({
-  //           ...externalTrade,
-  //           bankName: ba.bank_name || externalTrade?.bankName,
-  //           accountNumber:
-  //             ba.account_number || externalTrade?.accountNumber,
-  //           accountHolder: ba.holder_name || externalTrade?.accountHolder,
-  //         });
-
-  //         // 4) now set messages & attachments
-  //         setMessages(msgs);
-  //         setAttachments(atts);
-
-  //         // 5) preserve buyer_name into platformMetadata if present
-  //         if (externalTrade?.buyer_name) {
-  //           setAssignedTrade((prev) => ({
-  //             ...prev!,
-  //             platformMetadata: {
-  //               ...prev?.platformMetadata,
-  //               accountUsername: externalTrade.buyer_name,
-  //             },
-  //           }));
-  //         }
-  //       }
-
-  //     }
-  //   } catch (error: any) {
-  //     // No active trade
-  //     if (error.response?.status === 404) {
-  //       setAssignedTrade(null);
-  //     } else {
-  //       console.error("Error fetching trade data:", error);
-  //     }
-  //   } finally {
-  //     if (isInitial) setInitialLoading(false);
-  //   }
-  // };
-
-
-  // Initial fetch on component mount
 
   const fetchTradeData = async (isInitial = false) => {
     try {
       if (isInitial) setInitialLoading(true);
-
-      const tradeData = await getPayerTrade(user?.id || "");
-      if (tradeData?.success) {
-        const newTrade = tradeData.data;
-
-        if (
-        ["escalated", "paid", "completed", "successful", "cancelled"].includes(tradeData.data?.status)) {
-      setAssignedTrade(null);
-      setPaymentInfo({});
-      setMessages([]);
-      return;
-    }
-
-        // Only update the assigned trade if it's changed
-        setAssignedTrade(prevTrade => {
-          // If it's a new trade or different trade, update it
-          if (!prevTrade || prevTrade.id !== newTrade.id) {
-            return newTrade;
-          }
-          // Otherwise keep existing state to avoid UI flickering
-          return prevTrade;
-        });
-
-        try {
-          const detailsResponse = await getTradeDetails(
-            newTrade.platform,
-            newTrade.tradeHash,
-            newTrade.accountId
-          );
-
-          if (detailsResponse?.data) {
-            const { externalTrade, tradeChat } = detailsResponse.data;
-
-            // 1) pull raw messages & attachments
-            const msgs = Array.isArray(tradeChat?.messages) ? tradeChat.messages : [];
-            const atts = Array.isArray(tradeChat?.attachments) ? tradeChat.attachments : [];
-
-            // 2) find first message carrying bank_account payload
-            const bankMsg = msgs.find(
-              (m: { content: any; }) => m.content && typeof m.content === "object" && (m.content as any).bank_account
-            );
-            const ba = bankMsg ? (bankMsg.content as any).bank_account : {};
-
-            // 3) merge chat‑derived bank info with existing externalTrade data
-            setPaymentInfo(prevInfo => {
-              const updatedInfo = {
-                ...prevInfo,
-                ...externalTrade,
-                bankName: ba.bank_name || externalTrade?.bankName || prevInfo?.bankName,
-                accountNumber: ba.account_number || externalTrade?.accountNumber || prevInfo?.accountNumber,
-                accountHolder: ba.holder_name || externalTrade?.accountHolder || prevInfo?.accountHolder,
-              };
-
-              // Only update if something actually changed to prevent re-renders
-              if (JSON.stringify(updatedInfo) !== JSON.stringify(prevInfo)) {
-                return updatedInfo;
-              }
-              return prevInfo;
-            });
-
-            // 4) now set messages & attachments
-            setMessages(prevMsgs => {
-              if (JSON.stringify(msgs) !== JSON.stringify(prevMsgs)) {
-                return msgs;
-              }
-              return prevMsgs;
-            });
-
-            setAttachments(prevAtts => {
-              if (JSON.stringify(atts) !== JSON.stringify(prevAtts)) {
-                return atts;
-              }
-              return prevAtts;
-            });
-
-            // 5) preserve buyer_name into platformMetadata if present
-            if (externalTrade?.buyer_name) {
-              setAssignedTrade((prev) => {
-                if (!prev) return null;
-                // Only update if the value changed
-                if (prev.platformMetadata?.accountUsername !== externalTrade.buyer_name) {
-                  return {
-                    ...prev,
-                    platformMetadata: {
-                      ...prev?.platformMetadata,
-                      accountUsername: externalTrade.buyer_name,
-                    },
-                  };
-                }
-                return prev;
-              });
-            }
-          }
-        } catch (error) {
-          console.error("Error fetching trade details:", error);
+  
+      const tradeData = await getPayerTrade(user?.id);
+  
+      // No trade assigned
+      if (!tradeData?.success) {
+        if (isInitial) {
+          setAssignedTrade(null);
+          setPaymentInfo({});
+          setMessages([]);
         }
+        return;
+      }
+  
+      const newTrade = tradeData.data;
+  
+      // Check if trade status is terminal - must be first
+      const terminalStatuses = ["escalated", "paid", "completed", "successful", "cancelled", "expired"];
+      if (terminalStatuses.includes(newTrade.status?.toLowerCase())) {
+        console.log(`Trade in terminal state: ${newTrade.status}`);
+        setAssignedTrade(null);
+        setPaymentInfo({});
+        setMessages([]);
+        return;
+      }
+  
+      // Only update if trade actually changed
+      setAssignedTrade(prevTrade => {
+        if (!prevTrade) return newTrade;
+        
+        // Check if important fields changed
+        if (prevTrade.id !== newTrade.id || 
+            prevTrade.status !== newTrade.status ||
+            !isEqual(prevTrade.platformMetadata, newTrade.platformMetadata)) {
+          return newTrade;
+        }
+        
+        return prevTrade;
+      });
+
+      try {
+        const detailsResponse = await getTradeDetails(
+          newTrade.platform,
+          newTrade.tradeHash,
+          newTrade.accountId
+        );
+
+        if (detailsResponse?.data) {
+          const { externalTrade, tradeChat } = detailsResponse.data;
+
+          // 1) pull raw messages & attachments
+          const msgs = Array.isArray(tradeChat?.messages) ? tradeChat.messages : [];
+          const atts = Array.isArray(tradeChat?.attachments) ? tradeChat.attachments : [];
+
+          // 2) find first message carrying bank_account payload
+          const bankMsg = msgs.find(
+            (m: { content: any; }) => m.content && typeof m.content === "object" && (m.content as any).bank_account
+          );
+          const ba = bankMsg ? (bankMsg.content as any).bank_account : {};
+
+          // 3) merge chat‑derived bank info with existing externalTrade data
+          setPaymentInfo(prevInfo => {
+            const updatedInfo = {
+              ...prevInfo,
+              ...externalTrade,
+              bankName: ba.bank_name || externalTrade?.bankName || prevInfo?.bankName,
+              accountNumber: ba.account_number || externalTrade?.accountNumber || prevInfo?.accountNumber,
+              accountHolder: ba.holder_name || externalTrade?.accountHolder || prevInfo?.accountHolder,
+            };
+
+            // Only update if something actually changed to prevent re-renders
+            if (JSON.stringify(updatedInfo) !== JSON.stringify(prevInfo)) {
+              return updatedInfo;
+            }
+            return prevInfo;
+          });
+
+          // 4) now set messages & attachments
+          setMessages(prevMsgs => {
+            if (JSON.stringify(msgs) !== JSON.stringify(prevMsgs)) {
+              return msgs;
+            }
+            return prevMsgs;
+          });
+
+          setAttachments(prevAtts => {
+            if (JSON.stringify(atts) !== JSON.stringify(prevAtts)) {
+              return atts;
+            }
+            return prevAtts;
+          });
+
+          // 5) preserve buyer_name into platformMetadata if present
+          if (externalTrade?.buyer_name) {
+            setAssignedTrade((prev) => {
+              if (!prev) return null;
+              // Only update if the value changed
+              if (prev.platformMetadata?.accountUsername !== externalTrade.buyer_name) {
+                return {
+                  ...prev,
+                  platformMetadata: {
+                    ...prev?.platformMetadata,
+                    accountUsername: externalTrade.buyer_name,
+                  },
+                };
+              }
+              return prev;
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching trade details:", error);
       }
     } catch (error: any) {
       // No active trade
       if (error.response?.status === 404) {
         setAssignedTrade(null);
+        setPaymentInfo({});
+        setMessages([]);
       } else {
         console.error("Error fetching trade data:", error);
       }
@@ -330,7 +270,7 @@ const PayerDashboard = () => {
     if (!user) return;
     const intervalId = setInterval(() => {
       fetchTradeData(false);
-    }, 1000);
+    }, 3000);
     return () => clearInterval(intervalId);
   }, [user]);
 
@@ -425,11 +365,136 @@ const PayerDashboard = () => {
         }
       }
     }
-    
+
     checkClockInStatus();
   }, [user]);
 
-  // Show initial loading only; do not show loading state during silent polling.
+  const formatElapsedTime = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  useEffect(() => {
+    if (!assignedTrade?.assignedAt) {
+      setElapsed(0);
+      return;
+    }
+    
+    const startTime = new Date(assignedTrade.assignedAt).getTime();
+    const calculateElapsed = () => Math.floor((Date.now() - startTime) / 1000);
+    
+    // Set initial value immediately
+    setElapsed(calculateElapsed());
+    
+    // Update every second
+    const timer = setInterval(() => {
+      setElapsed(calculateElapsed());
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [assignedTrade?.assignedAt]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    // Initialize socket connection
+    if (!socketRef.current) {
+      socketRef.current = io(SOCKET_BASE_URL, {
+        auth: { userId: user.id },
+        reconnection: true,
+      });
+
+      socketRef.current.emit("joinNotificationRoom", user.id);
+
+      // Listen for trade deletions
+      socketRef.current.on("tradeDeleted", ({ tradeId }) => {
+        if (assignedTrade?.id === tradeId) {
+          console.log(`Received tradeDeleted event for current trade: ${tradeId}`);
+          setAssignedTrade(null);
+          setMessages([]);
+          setPaymentInfo({});
+          toast.success("Your trade was cancelled by the system", successStyles);
+        }
+      });
+
+      // Listen for trade status changes
+      socketRef.current.on("tradeStatusChanged", ({ tradeId, status }) => {
+        if (assignedTrade?.id === tradeId) {
+          const terminalStatuses = ["escalated", "paid", "completed", "successful", "cancelled", "expired"];
+          if (terminalStatuses.includes(status.toLowerCase())) {
+            setAssignedTrade(null);
+            setPaymentInfo({});
+            setMessages([]);
+          }
+        }
+      });
+
+      // Reconnection logic
+      socketRef.current.on("connect", () => {
+        console.log("Socket connected");
+        socketRef.current?.emit("joinNotificationRoom", user.id);
+      });
+
+      socketRef.current.on("disconnect", () => {
+        console.log("Socket disconnected");
+      });
+    }
+
+    return () => {
+      console.log("Cleaning up socket listeners");
+      socketRef.current?.off("tradeDeleted");
+      socketRef.current?.off("tradeStatusChanged");
+      socketRef.current?.off("connect");
+      socketRef.current?.off("disconnect");
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (assignedTrade?.id && socketRef.current) {
+      // Register interest in this specific trade
+      socketRef.current.emit("watchTrade", assignedTrade.id);
+
+      return () => {
+        // Unregister when trade changes or component unmounts
+        socketRef.current?.emit("unwatchTrade", assignedTrade.id);
+      };
+    }
+  }, [assignedTrade?.id]);
+
+  useEffect(() => {
+    async function fetchCostPrice() {
+      if (assignedTrade?.platform) {
+        try {
+          const result = await getPlatformCostPrice(assignedTrade.platform);
+          console.log("API Response:", result);
+          
+          if (result && result.costPrice !== undefined) {
+            setCostPrice(result.costPrice);
+          } else {
+            console.error("Cost price not found in the response");
+            setCostPrice(null);
+          }
+        } catch (error) {
+          console.error("Error fetching cost price:", error);
+          setCostPrice(null);
+        }
+      }
+    }
+    
+    fetchCostPrice();
+  }, [assignedTrade?.platform]);
+  
+  // Rate comparison logic
+  const btcRateNum = paymentInfo.btcRate ? Number(paymentInfo.btcRate) : null;
+  
+  console.log("Cost Price", costPrice);
+  const isGoodRate =
+    costPrice !== null &&
+    btcRateNum !== null &&
+    (btcRateNum >= costPrice || (btcRateNum >= (costPrice - 200000)));
+
   if (initialLoading || isCheckingClockStatus) {
     return (
       <Box
@@ -444,7 +509,7 @@ const PayerDashboard = () => {
       </Box>
     );
   }
-  
+
   if (!isUserClockedIn) {
     return (
       <Box
@@ -530,7 +595,14 @@ const PayerDashboard = () => {
   }
 
   return (
-    <Box sx={{ mt: 3, minHeight: "100vh", zIndex: -1 }}>
+    <Box
+      sx={{
+        mt: 3,
+        minHeight: "100vh",
+        zIndex: -1,
+        backgroundColor: isGoodRate ? "transparent" : "rgba(255, 69, 0, 0.1)", // Light amber red background
+      }}
+    >
       {assignedTrade?.flagged && (
         <div className="w-[1230px] right-0 h-[100vh] top-[0px] bg-red-500/20 absolute z-[0]" />
       )}
@@ -543,14 +615,22 @@ const PayerDashboard = () => {
               <div className="flex flex-wrap justify-between items-center">
                 <h2 className="text-3xl font-extrabold text-gray-800">Trade Details</h2>
                 <div className="flex flex-wrap gap-1">
-                  {assignedTrade?.flagged ? (
-                    <span className="px-4 py-2 bg-red-500 text-white rounded-md font-semibold">BAD</span>
-                  ) : (
-                    <span className="px-4 py-2 bg-green-500 text-white rounded-md font-semibold">GOOD</span>
+                  <span
+                    className={`px-4 py-2 text-white rounded-md font-semibold ${isGoodRate ? "bg-green-500" : "bg-red-500"
+                      }`}
+                  >
+                    {isGoodRate ? "GOOD" : "BAD"}
+                  </span>
+
+                  {assignedTrade?.flagged && (
+                    <span className="px-4 py-2 bg-red-500 text-white rounded-md font-semibold">
+                      FLAGGED
+                    </span>
                   )}
                   <button
                     onClick={() => setFlagDialogOpen(true)}
                     className="flex items-center gap-2 border-2 border-yellow-500 text-yellow-600 font-bold px-4 py-2 rounded-lg hover:bg-yellow-500 hover:text-white transition-colors"
+                    type="button"
                   >
                     <FlagIcon />
                     Flag Issue
@@ -558,6 +638,7 @@ const PayerDashboard = () => {
                   <button
                     onClick={() => setEscalateModalOpen(true)}
                     className="flex items-center gap-2 border-2 border-red-500 text-red-600 font-bold px-4 py-2 rounded-lg hover:bg-yellow-500 hover:text-white transition-colors"
+                    type="button"
                   >
                     <AlertIcon />
                     Escalate
@@ -575,13 +656,17 @@ const PayerDashboard = () => {
                 <div className="space-y-2">
                   <p className="text-sm text-gray-500">BTC Rate</p>
                   <h3 className="text-lg font-semibold text-gray-800">
-                    {paymentInfo?.btcRate ? Number(paymentInfo.btcRate).toLocaleString() : "N/A"}
-                  </h3>
+  {paymentInfo?.btcRate ? 
+    Number(paymentInfo.btcRate).toLocaleString(undefined, {
+      maximumFractionDigits: 0
+    }) 
+    : "N/A"}
+</h3>
                 </div>
                 <div className="space-y-2">
                   <p className="text-sm text-gray-500">Account</p>
                   <h3 className="text-lg font-semibold text-gray-800">
-                    {assignedTrade?.platformMetadata?.accountUsername || "N/A"}
+                  {accountName}
                   </h3>
                 </div>
                 <div className="space-y-2">
@@ -590,12 +675,19 @@ const PayerDashboard = () => {
                     {paymentInfo?.dollarRate ? Number(paymentInfo.dollarRate).toFixed(2) : "N/A"}
                   </h3>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <p className="text-sm text-gray-500">Amount</p>
-                  <h3 className="text-2xl font-bold text-blue-600">
+                  <h3 className="text-[35px] font-bold text-green-600">
                     {assignedTrade?.amount ? Number(assignedTrade.amount).toLocaleString() : "N/A"}
                   </h3>
                 </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-gray-500">Elapsed Time</p>
+                  <h3 className="text-[15px] font-bold text-gray-600">
+                  {formatElapsedTime(elapsed)}
+                  </h3>
+                </div>
+                
               </div>
               {/* Payment Details */}
 
@@ -607,27 +699,27 @@ const PayerDashboard = () => {
                       <Bank className="text-blue-600" />
                       <p className="text-sm text-gray-500">Bank Name</p>
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-800">
+                    <h1 className="text-lg font-semibold text-gray-800">
                       {paymentInfo?.bankName || "N/A"}
-                    </h3>
+                    </h1>
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <CreditCardIcon className="text-blue-600" />
                       <p className="text-sm text-gray-500">Account Number</p>
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-800">
+                    <h1 className="font-bold text-gray-800 text-[35px]">
                       {paymentInfo?.accountNumber || "N/A"}
-                    </h3>
+                    </h1>
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <Person className="text-blue-600" />
                       <p className="text-sm text-gray-500">Account Holder</p>
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-800">
+                    <h1 className="text-lg font-semibold text-gray-800">
                       {paymentInfo?.accountHolder || "N/A"}
-                    </h3>
+                    </h1>
                   </div>
                 </div>
               </div>
@@ -636,6 +728,7 @@ const PayerDashboard = () => {
                 onClick={approveTrade}
                 disabled={isPaymentLoading}
                 className={`w-full flex items-center justify-center bg-blue-600 text-white text-xl font-bold py-3 rounded-lg shadow-lg hover:bg-blue-700 transform hover:-translate-y-1 transition ${isPaymentLoading ? "opacity-75 cursor-not-allowed" : ""}`}
+                type="button"
               >
                 {isPaymentLoading ? (
                   <>
@@ -789,17 +882,17 @@ const PayerDashboard = () => {
       </Snackbar>
       {/* Escalate Trade Dialog */}
       {assignedTrade && user?.id && (
-  <EscalateTrade
-    open={escalateModalOpen}
-    onClose={() => setEscalateModalOpen(false)}
-    onSuccess={handleEscalationSuccess}
-    escalateData={{
-      tradeId: assignedTrade.id,
-      assignedPayerId: assignedTrade?.assignedPayer?.id || user.id,
-      escalatedById: user.id,
-    }}
-  />
-)}
+        <EscalateTrade
+          open={escalateModalOpen}
+          onClose={() => setEscalateModalOpen(false)}
+          onSuccess={handleEscalationSuccess}
+          escalateData={{
+            tradeId: assignedTrade.id,
+            assignedPayerId: assignedTrade?.assignedPayer?.id || user.id,
+            escalatedById: user.id,
+          }}
+        />
+      )}
     </Box>
   );
 };

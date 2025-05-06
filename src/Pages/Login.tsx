@@ -42,7 +42,17 @@ const Login: React.FC = () => {
     } catch (error) {
       setLoading(false);
       toast.dismiss();
-      handleApiError(error);
+      
+      if (axios.isAxiosError(error) && error.response) {
+        if (error.response.status === 401) {
+          toast.error("Invalid credentials");
+        } else {
+          handleApiError(error);
+        }
+      } else {
+        toast.error("Network error. Please check your connection.");
+      }
+      
       return null;
     }
   };

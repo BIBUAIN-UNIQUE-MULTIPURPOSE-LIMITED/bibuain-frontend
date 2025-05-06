@@ -10,8 +10,10 @@ interface OfferUpdatePayload {
   usdtrate: number;
 }
 
-
-
+interface CostPriceResponse {
+  platform: string;
+  costPrice: number;
+}
 export const getCurrentRates = async () => {
   try {
     const res: ResInterface = await api.get("/trade/currency/rates");
@@ -34,7 +36,6 @@ export const updateAccountRates = async (payload: {
   }
 };
 
-
 export const getAccounts = async () => {
   try {
     const res: ResInterface = await api.get("/trade/accounts");
@@ -44,7 +45,6 @@ export const getAccounts = async () => {
   }
 };
 
-// Trade Endpoints
 export const getLiveTrades = async () => {
   try {
     const res: ResInterface = await api.get("/trade/live-trades");
@@ -87,10 +87,6 @@ export const getTradeDetails = async (
   }
 };
 
-/**
- * Send a trade chat message.
- * Updated to match backend: route is POST /trade/message/:tradeId with { content } in the body.
- */
 export const sendTradeMessage = async (tradeId: string, message: string) => {
   const response = await api.post(`/trade/${tradeId}/chat-message`, {
     content: message
@@ -127,14 +123,13 @@ export const getFeedbackStats = async (params: { username: string; platform: str
   }
 };
 
-
 export const getCompletedTrades = async (params: {
   page?: number;
   limit?: number;
   payerId?: string;
   search?: string;
   dateRange?: string;
-})=> {
+}) => {
   try {
     const res: ResInterface = await api.get("/trade/completed", { params });
     return res;
@@ -143,14 +138,13 @@ export const getCompletedTrades = async (params: {
   }
 };
 
-
 export const getCompletedPayerTrades = async (params: {
   page?: number;
   limit?: number;
   payerId?: string;
   search?: string;
   dateRange?: string;
-})=> {
+}) => {
   try {
     const res: ResInterface = await api.get("/trade/payer-trade", { params });
     return res;
@@ -159,7 +153,6 @@ export const getCompletedPayerTrades = async (params: {
   }
 };
 
-// Wallet and Offers Endpoints
 export const getWalletBalances = async () => {
   try {
     const res: ResInterface = await api.get("/trade/wallet-balances");
@@ -177,7 +170,6 @@ export const getOffersMargin = async () => {
     handleApiError(error);
   }
 };
-
 
 export const updateOffers = async (payload: OfferUpdatePayload) => {
   try {
@@ -214,7 +206,7 @@ export const reAssignTrade = async (tradeId: string) => {
     return res;
   } catch (error) {
     handleApiError(error);
-    throw error; 
+    throw error;
   }
 };
 
@@ -239,7 +231,6 @@ export const getUnfinishedTrades = async (page?: number, limit?: number) => {
     handleApiError(error);
   }
 };
-
 
 export const getCapRates = async (): Promise<ResInterface | void> => {
   try {
@@ -295,7 +286,6 @@ export const getVendorCoin = async () => {
   }
 };
 
-// Add to your trade API service (api/trade.ts)
 export const escalateTrade = async (
   tradeId: string,
   payload: {
@@ -336,8 +326,8 @@ export const getngnPlatformRate = async () => {
   try {
     const res: ResInterface = await api.get('/trade/get-ngnrates');
     return res;
-  } catch(error) {
-    handleApiError (error)
+  } catch (error) {
+    handleApiError(error)
   }
 };
 
@@ -370,3 +360,21 @@ export const getCCstats = async () => {
   }
 };
 
+export const getPlatformCostPrice = async (platform: string): Promise<CostPriceResponse | null> => {
+  try {
+    // This should get the raw response data
+    const response = await api.get<CostPriceResponse>(`/trade/costprice/${platform}`);
+    
+    // Check if the response data exists
+    if (!response || !response.data) {
+      throw new Error('No response received from server');
+    }
+    
+    // Return the response data which contains platform and costPrice directly
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching platform cost price:', error);
+    handleApiError(error);
+    return null;
+  }
+};

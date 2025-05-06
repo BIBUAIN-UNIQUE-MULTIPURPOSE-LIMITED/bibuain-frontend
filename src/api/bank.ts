@@ -18,7 +18,7 @@ export const addBank = async (data: unknown) => {
   }
 };
 
-// Function to get all banks
+// Function to get all banks (Admin/Rater)
 export const getAllBanks = async () => {
   try {
     const res: ResInterface = await api.get("/banks");
@@ -28,7 +28,7 @@ export const getAllBanks = async () => {
   }
 };
 
-// Function to get free banks
+// Function to get free (unfunded) banks (Admin/Rater)
 export const getFreeBanks = async () => {
   try {
     const res: ResInterface = await api.get("/banks/free");
@@ -38,7 +38,7 @@ export const getFreeBanks = async () => {
   }
 };
 
-// Function to get funded banks
+// Function to get funded banks (Admin/Rater/Payer)
 export const getFundedBanks = async () => {
   try {
     const res: ResInterface = await api.get("/banks/funded");
@@ -48,7 +48,47 @@ export const getFundedBanks = async () => {
   }
 };
 
-// Function to update a bank's details
+// Function to get used banks (Admin/Rater)
+export const getUsedBanks = async () => {
+  try {
+    const res: ResInterface = await api.get("/banks/used");
+    return res;
+  } catch (error) {
+    handleApiError(error);
+  }
+};
+
+// Function to get rollover banks (Admin/Rater)
+export const getRolloverBanks = async () => {
+  try {
+    const res: ResInterface = await api.get("/banks/rollover");
+    return res;
+  } catch (error) {
+    handleApiError(error);
+  }
+};
+
+// Function to get fresh banks (Admin/Rater)
+export const getFreshBanks = async () => {
+  try {
+    const res: ResInterface = await api.get("/banks/fresh");
+    return res;
+  } catch (error) {
+    handleApiError(error);
+  }
+};
+
+// Function to get a single bank by ID (Admin/Rater)
+export const getSingleBank = async (id: string) => {
+  try {
+    const res: ResInterface = await api.get(`/banks/single/${id}`);
+    return res;
+  } catch (error) {
+    handleApiError(error);
+  }
+};
+
+// Function to update a bank's details (Admin/Rater)
 export const updateBank = async (id: string, data: unknown) => {
   try {
     toast.loading("Updating Bank...", loadingStyles);
@@ -62,6 +102,7 @@ export const updateBank = async (id: string, data: unknown) => {
   }
 };
 
+// Function to delete a bank (Admin/Rater)
 export const deleteBank = async (id: string) => {
   try {
     toast.loading("Deleting Bank...", loadingStyles);
@@ -75,10 +116,24 @@ export const deleteBank = async (id: string) => {
   }
 };
 
-export const getSingleBank = async (id: string) => {
+// Function to use (spend) a bank (Payer)
+export const useBank = async (id: string, payload: { amountUsed: number; shiftId: string }) => {
   try {
-    const res: ResInterface = await api.get(`/banks/single/${id}`);
+    toast.loading("Processing Transaction...", loadingStyles);
+    const res: ResInterface = await api.post(`/banks/use/${id}`, payload);
+    toast.dismiss();
+    toast.success("Bank updated successfully", successStyles);
+    return res;
+  } catch (error) {
+    toast.dismiss();
+    handleApiError(error);
+  }
+};
 
+// Function to refresh banks (Admin cron)
+export const refreshBanks = async () => {
+  try {
+    const res: ResInterface = await api.post("/banks/refresh");
     return res;
   } catch (error) {
     handleApiError(error);
