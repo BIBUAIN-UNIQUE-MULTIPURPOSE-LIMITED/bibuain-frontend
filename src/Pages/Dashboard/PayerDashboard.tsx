@@ -46,7 +46,7 @@ import { CreditCardIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getCurrentShift } from "../../api/shift";
 import { io, Socket } from "socket.io-client";
-import isEqual from "lodash/isEqual"; 
+import isEqual from "lodash/isEqual";
 
 
 // Styled components
@@ -101,6 +101,7 @@ const PayerDashboard = () => {
   // Use a separate flag for the very first load only.
   const [initialLoading, setInitialLoading] = useState<boolean>(true);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
 
   const [isUserClockedIn, setIsUserClockedIn] = useState<boolean | null>(null);
   const [isCheckingClockStatus, setIsCheckingClockStatus] = useState(true);
@@ -121,11 +122,11 @@ const PayerDashboard = () => {
   }, [messages]);
 
   const accountName = useMemo(() => {
-    return assignedTrade?.platformMetadata?.accountUsername || 
-           paymentInfo?.buyer_name || 
-           "N/A";
+    return assignedTrade?.platformMetadata?.accountUsername ||
+      paymentInfo?.buyer_name ||
+      "N/A";
   }, [
-    assignedTrade?.platformMetadata?.accountUsername, 
+    assignedTrade?.platformMetadata?.accountUsername,
     paymentInfo?.buyer_name
   ]);
 
@@ -133,9 +134,9 @@ const PayerDashboard = () => {
   const fetchTradeData = async (isInitial = false) => {
     try {
       if (isInitial) setInitialLoading(true);
-  
+
       const tradeData = await getPayerTrade(user?.id);
-  
+
       // No trade assigned
       if (!tradeData?.success) {
         if (isInitial) {
@@ -145,9 +146,9 @@ const PayerDashboard = () => {
         }
         return;
       }
-  
+
       const newTrade = tradeData.data;
-  
+
       // Check if trade status is terminal - must be first
       const terminalStatuses = ["escalated", "paid", "completed", "successful", "cancelled", "expired"];
       if (terminalStatuses.includes(newTrade.status?.toLowerCase())) {
@@ -157,18 +158,18 @@ const PayerDashboard = () => {
         setMessages([]);
         return;
       }
-  
+
       // Only update if trade actually changed
       setAssignedTrade(prevTrade => {
         if (!prevTrade) return newTrade;
-        
+
         // Check if important fields changed
-        if (prevTrade.id !== newTrade.id || 
-            prevTrade.status !== newTrade.status ||
-            !isEqual(prevTrade.platformMetadata, newTrade.platformMetadata)) {
+        if (prevTrade.id !== newTrade.id ||
+          prevTrade.status !== newTrade.status ||
+          !isEqual(prevTrade.platformMetadata, newTrade.platformMetadata)) {
           return newTrade;
         }
-        
+
         return prevTrade;
       });
 
@@ -297,36 +298,36 @@ const PayerDashboard = () => {
     }
   };
 
-  const approveTrade = async () => {
-    if (!assignedTrade) return;
-    const confirmMsg = window.confirm("Do you want to mark this trade as paid?");
-    if (!confirmMsg) return;
+  const approveTrade = () => {
+    setConfirmDialogOpen(true);
+  };
 
+  const handleConfirmPayment = async () => {
+    setConfirmDialogOpen(false);
+    if (!assignedTrade) return;
     setIsPaymentLoading(true);
     try {
       const response = await markTradeAsPaid(assignedTrade.id);
       if (response?.success) {
         toast.success("Trade marked as paid successfully!", successStyles);
-
-        // Add a small delay before fetching updated data
-        setTimeout(async () => {
-          await fetchTradeData(true);
+        setTimeout(() => {
+          fetchTradeData(true);
           setAssignedTrade(null);
           setPaymentInfo({});
           setMessages([]);
         }, 1000);
       } else {
-        const errorMessage = response?.message || "Failed to mark trade as paid";
-        console.error(errorMessage);
         await refreshtrade();
       }
-    } catch (error: any) {
-      console.error("Payment error:", error);
-      // Your existing error handling code
+    } catch {
       await refreshtrade();
     } finally {
       setIsPaymentLoading(false);
     }
+  };
+
+  const handleCancelPayment = () => {
+    setConfirmDialogOpen(false);
   };
 
   const handleEscalationSuccess = async () => {
@@ -381,18 +382,18 @@ const PayerDashboard = () => {
       setElapsed(0);
       return;
     }
-    
+
     const startTime = new Date(assignedTrade.assignedAt).getTime();
     const calculateElapsed = () => Math.floor((Date.now() - startTime) / 1000);
-    
+
     // Set initial value immediately
     setElapsed(calculateElapsed());
-    
+
     // Update every second
     const timer = setInterval(() => {
       setElapsed(calculateElapsed());
     }, 1000);
-    
+
     return () => clearInterval(timer);
   }, [assignedTrade?.assignedAt]);
 
@@ -469,7 +470,7 @@ const PayerDashboard = () => {
         try {
           const result = await getPlatformCostPrice(assignedTrade.platform);
           console.log("API Response:", result);
-          
+
           if (result && result.costPrice !== undefined) {
             setCostPrice(result.costPrice);
           } else {
@@ -482,13 +483,13 @@ const PayerDashboard = () => {
         }
       }
     }
-    
+
     fetchCostPrice();
   }, [assignedTrade?.platform]);
-  
+
   // Rate comparison logic
   const btcRateNum = paymentInfo.btcRate ? Number(paymentInfo.btcRate) : null;
-  
+
   console.log("Cost Price", costPrice);
   const isGoodRate =
     costPrice !== null &&
@@ -656,17 +657,17 @@ const PayerDashboard = () => {
                 <div className="space-y-2">
                   <p className="text-sm text-gray-500">BTC Rate</p>
                   <h3 className="text-lg font-semibold text-gray-800">
-  {paymentInfo?.btcRate ? 
-    Number(paymentInfo.btcRate).toLocaleString(undefined, {
-      maximumFractionDigits: 0
-    }) 
-    : "N/A"}
-</h3>
+                    {paymentInfo?.btcRate ?
+                      Number(paymentInfo.btcRate).toLocaleString(undefined, {
+                        maximumFractionDigits: 0
+                      })
+                      : "N/A"}
+                  </h3>
                 </div>
                 <div className="space-y-2">
                   <p className="text-sm text-gray-500">Account</p>
                   <h3 className="text-lg font-semibold text-gray-800">
-                  {accountName}
+                    {accountName}
                   </h3>
                 </div>
                 <div className="space-y-2">
@@ -684,10 +685,10 @@ const PayerDashboard = () => {
                 <div className="space-y-1">
                   <p className="text-sm text-gray-500">Elapsed Time</p>
                   <h3 className="text-[15px] font-bold text-gray-600">
-                  {formatElapsedTime(elapsed)}
+                    {formatElapsedTime(elapsed)}
                   </h3>
                 </div>
-                
+
               </div>
               {/* Payment Details */}
 
@@ -893,6 +894,31 @@ const PayerDashboard = () => {
           }}
         />
       )}
+      {/* Confirmation Dialog */}
+      <Dialog
+        open={confirmDialogOpen}
+        onClose={handleCancelPayment}
+      >
+        <DialogTitle>Confirm Payment</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to mark this trade as paid?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelPayment}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleConfirmPayment}
+            disabled={isPaymentLoading}
+            variant="contained"
+            startIcon={isPaymentLoading ? <CircularProgress size={16} /> : <CheckCircle />}
+          >
+            {isPaymentLoading ? "Processing…" : "Yes, mark as paid"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

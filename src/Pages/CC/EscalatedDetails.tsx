@@ -38,7 +38,7 @@ import {
   Sync,
 } from "@mui/icons-material";
 import { useNavigate, useParams } from "react-router-dom";
-import { getEscalatedTradeById } from "../../api/trade";
+import { getEscalatedTradeById, ApiResponse, ChatMessage } from "../../api/trade";
 import { getAllUsers } from "../../api/user";
 import { reAssignTrade, sendTradeMessage, cancelTradeRequest } from "../../api/trade";
 import toast from "react-hot-toast";
@@ -244,44 +244,55 @@ const EscalatedDetails: React.FC = () => {
   };
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || !tradeId) return;
-
-    try {
-      const tempMessage: Message = {
-        id: `temp-${Date.now()}`,
-        content: newMessage,
-        sender: {
-          id: "current-user",
-          fullName: "You",
-          avatar: DEFAULT_AVATAR,
-          isCurrentUser: true
-        },
+    // 1) guard on having a trade ID & nonempty text
+    if (!tradeId) return;
+    const content = newMessage.trim();
+    if (!content) return;
+  
+    // 2) optimistic‐UI: add a “sending…” bubble
+    const tmpId = `tmp-${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: tmpId,
+        content,
+        sender: { id: "me", fullName: "You", isCurrentUser: true },
         createdAt: new Date().toISOString(),
-        status: 'sending'
-      };
-
-      setMessages(prev => [...prev, tempMessage]);
-      setNewMessage("");
-
-      const response = await sendTradeMessage(tradeId, newMessage);
-
-      if (response?.success) {
-        setMessages(prev => prev.map(msg =>
-          msg.id === tempMessage.id ? { ...msg, status: 'sent' } : msg
-        ));
-        fetchTradeDetails();
+        status: "sending"
+      },
+    ]);
+    setNewMessage("");
+  
+    try {
+      // 3) call API
+      const res: ApiResponse<ChatMessage> = await sendTradeMessage(tradeId, content);
+  
+      if (res.success) {
+        // 4a) mark that temp bubble as “sent”
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === tmpId ? { ...msg, status: "sent" } : msg
+          )
+        );
+        // 5) reload from server (pull in any other new messages)
+        await fetchTradeDetails();
       } else {
-        setMessages(prev => prev.map(msg =>
-          msg.id === tempMessage.id ? { ...msg, status: 'failed' } : msg
-        ));
-        toast.error("Failed to send message", errorStyles);
+        // 4b) mark it as “failed”
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === tmpId ? { ...msg, status: "failed" } : msg
+          )
+        );
+        toast.error(res.message || "Failed to send message");
       }
-    } catch (error) {
-      console.error("Error sending message:", error);
-      toast.error("Failed to send message", errorStyles);
-      setMessages(prev => prev.filter(msg => msg.id !== `temp-${Date.now()}`));
+    } catch (err) {
+      console.error("Error sending message:", err);
+      // 6) remove the temp bubble entirely
+      setMessages((prev) => prev.filter((msg) => msg.id !== tmpId));
+      toast.error("Failed to send message");
     }
   };
+  
 
   const handleRetryMessage = async (message: Message) => {
     if (typeof message.content !== 'string' || !tradeId) return;

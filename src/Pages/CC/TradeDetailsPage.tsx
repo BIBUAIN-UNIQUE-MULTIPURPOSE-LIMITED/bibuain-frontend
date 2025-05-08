@@ -18,9 +18,9 @@ import {
 import { Send as SendIcon, AttachFile, Menu as MenuIcon } from "@mui/icons-material";
 import { format, formatDistanceToNow } from "date-fns";
 import { useParams } from "react-router-dom";
-import { getTradeDetails, sendTradeMessage } from "../../api/trade";
+import { getTradeDetails, sendTradeMessage, ApiResponse } from "../../api/trade";
 import toast from "react-hot-toast";
-import { Formik, Form, FormikHelpers } from "formik";
+import { Formik, Form } from "formik";
 import * as Yup from "yup";
 import { useUserContext } from "../../Components/ContextProvider";
 // import { enUS } from "@mui/material/locale";
@@ -32,11 +32,12 @@ interface ChatMessage {
   sender?: { id: string; fullName: string };
   createdAt: string;
 }
-interface TradeChat {
-  messages: ChatMessage[];
-  attachments?: any[];
-}
+// interface TradeChat {
+//   messages: ChatMessage[];
+//   attachments?: any[];
+// }
 interface TradeRecord {
+  id: string; 
   ownerUsername: string;
   assignedPayer?: { fullName: string };
   createdAt: Date;
@@ -62,13 +63,11 @@ interface TradeDetailsData {
     accountHolder: string;
     buyer_name: string;
   };
-  tradeChat: TradeChat;
+  tradeChat: { messages: ChatMessage[] };
   tradeRecord: TradeRecord;
   tradeDuration: number | null;
 }
-interface ChatFormValues {
-  message: string;
-}
+
 const messageValidation = Yup.object({
   message: Yup.string().required("Message is required"),
 });
@@ -153,38 +152,41 @@ const TradeDetailsPage: React.FC = () => {
   }, [tradeDetailsData?.tradeChat?.messages]);
 
 // inside your TradeDetailsPage component, *replace* your old handleSendMessage:
-const handleSendMessage = async (
-  values: ChatFormValues,
-  { resetForm, setSubmitting }: FormikHelpers<ChatFormValues>
-) => {
-  // 1) make sure we have all the identifiers
-  if (!platform || !tradeHash || !accountId) {
-    toast.error("Missing trade identifiers.");
-    setSubmitting(false);
-    return;
-  }
 
-  try {
-    // 2) call your API
-    const res = await sendTradeMessage(
-      accountId,
-      values.message.trim()
-    );
-
-    if (res?.success) {
-      resetForm();
-      await fetchTradeData();
-      scrollToBottom();
-    } else {
-      toast.error(res?.message || "Failed to send message.");
+  const handleSendMessage = async (
+    values: { message: string },
+    { resetForm, setSubmitting }
+  ) => {
+    if (!tradeDetailsData) {
+      toast.error("Trade not loaded.");
+      setSubmitting(false);
+      return;
     }
-  } catch (err) {
-    console.error("Error sending message:", err);
-    toast.error("Failed to send message.");
-  } finally {
-    setSubmitting(false);
-  }
-};
+
+    const { id: tradeId } = tradeDetailsData.tradeRecord;   // ← the UUID
+    const content = values.message.trim();
+    if (!content) {
+      setSubmitting(false);
+      return;
+    }
+
+    try {
+      const res: ApiResponse<ChatMessage> = await sendTradeMessage(tradeId, content);
+      if (res.success) {
+        resetForm();
+        await fetchTradeData();
+        scrollToBottom();
+      } else {
+        toast.error(res.message || "Failed to send message.");
+      }
+    } catch (err) {
+      console.error("Error sending message:", err);
+      toast.error("Failed to send message.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
 
 
   if (loading) {

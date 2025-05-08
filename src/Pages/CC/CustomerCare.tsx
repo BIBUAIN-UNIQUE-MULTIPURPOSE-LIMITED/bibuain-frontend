@@ -235,8 +235,8 @@ const CustomerSupport: React.FC = () => {
           amount: t.amount || 0,
           status: t.status,
           createdAt: t.createdAt,
-          ownerUsername: t.ownerUsername,
-          responderUsername: t.responderUsername,
+          ownerUsername: t.owner,
+          responderUsername: t.username,
           cryptoCurrencyCode: t.cryptoCurrencyCode,
           fiatCurrency: t.fiatCurrency,
           paymentMethod: t.paymentMethod,
@@ -445,7 +445,7 @@ const CustomerSupport: React.FC = () => {
   }
 
   return (
-    <Box className="min-h-screen p-4 md:p-6">
+    <Box className="min-h-screen">
       {/* Header Section */}
       <Box className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <Box>
@@ -480,11 +480,14 @@ const CustomerSupport: React.FC = () => {
       {/* Tabs Navigation */}
       <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
         <Tabs
+        variant="fullWidth" 
+
           value={tabValue}
           onChange={handleTabChange}
           sx={{
             "& .MuiTab-root": {
-              minWidth: 120,
+              flex: 1,
+              minWidth: 0,
               fontWeight: 600,
               fontSize: "0.875rem",
               textTransform: "none",
@@ -580,7 +583,7 @@ const CustomerSupport: React.FC = () => {
       </Box>
 
       {/* Stats Cards */}
-      <Box className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+      {/* <Box className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <Paper
           elevation={0}
           sx={{
@@ -598,6 +601,7 @@ const CustomerSupport: React.FC = () => {
                 ? completedTrades.length
                 : allTrades.length}
           </Typography>
+
           <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
             {tabValue === 0
               ? "Total Escalations"
@@ -613,7 +617,7 @@ const CustomerSupport: React.FC = () => {
                 : `${filteredAllTrades.length} match current filters`}
           </Typography>
         </Paper>
-      </Box>
+      </Box> */}
 
       {/* Tab Panels */}
       <TabPanel value={tabValue} index={0}>

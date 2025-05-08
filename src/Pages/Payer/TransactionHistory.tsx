@@ -463,7 +463,7 @@ const TransactionHistory: React.FC = () => {
     payerSpeed: tx.payerSpeed,
     ngnSellingPrice: tx.ngnSellingPrice.toLocaleString(),
     ngnCostPrice: tx.ngnCostPrice.toLocaleString(),
-    usdCost: tx.usdCost,
+    usdCost: tx.usdCost.toString(),
   }));
 
   // Render

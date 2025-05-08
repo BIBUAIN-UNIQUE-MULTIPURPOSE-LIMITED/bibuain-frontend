@@ -89,8 +89,7 @@ const Banks = () => {
   const tabOptions: { label: string; value: TabOption }[] =
     user?.userType === "payer"
       ? [
-          { label: "Funded Banks", value: "funded" },
-          { label: "Used Banks", value: "used" },
+          { label: "Funded Banks", value: "funded" }
         ]
       : [
           { label: "All Banks", value: "all" },

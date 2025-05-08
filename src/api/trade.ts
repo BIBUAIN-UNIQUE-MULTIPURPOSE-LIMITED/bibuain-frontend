@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import toast from "react-hot-toast";
 import { ResInterface } from "../lib/interface";
 import { api, handleApiError } from "./user";
@@ -14,6 +15,20 @@ interface CostPriceResponse {
   platform: string;
   costPrice: number;
 }
+
+export interface ApiResponse<T = any> {
+  success: boolean;
+  message: string;
+  data?: T;
+}
+
+export interface ChatMessage {
+  id: string;
+  content: string;
+  sender?: { id: string; fullName: string };
+  createdAt: string;
+}
+
 export const getCurrentRates = async () => {
   try {
     const res: ResInterface = await api.get("/trade/currency/rates");
@@ -87,11 +102,16 @@ export const getTradeDetails = async (
   }
 };
 
-export const sendTradeMessage = async (tradeId: string, message: string) => {
-  const response = await api.post(`/trade/${tradeId}/chat-message`, {
-    content: message
-  });
-  return response.data;
+export const sendTradeMessage = async (
+  tradeId: string,
+  content: string
+): Promise<ApiResponse<ChatMessage>> => {
+  // ⚠️ endpoint uses the internal UUID, not the external hash
+  const res = await api.post<ApiResponse<ChatMessage>>(
+    `/api/v1/trade/${tradeId}/chat-message`,
+    { content }
+  );
+  return res.data;
 };
 
 export const markTradeAsPaid = async (
