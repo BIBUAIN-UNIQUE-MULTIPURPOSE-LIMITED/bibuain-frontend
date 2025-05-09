@@ -782,6 +782,7 @@ const Inbox: React.FC = () => {
                       </IconButton>
                     </Typography>
                   )}
+
                   <InputBase
                     fullWidth
                     placeholder="Type a message"

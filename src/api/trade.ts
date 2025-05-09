@@ -106,13 +106,24 @@ export const sendTradeMessage = async (
   tradeId: string,
   content: string
 ): Promise<ApiResponse<ChatMessage>> => {
-  // ⚠️ endpoint uses the internal UUID, not the external hash
-  const res = await api.post<ApiResponse<ChatMessage>>(
-    `/api/v1/trade/${tradeId}/chat-message`,
-    { content }
-  );
-  return res.data;
+  try {
+    const response = await api.post<ApiResponse<ChatMessage>>(
+      `/trade/${tradeId}/chat-message`,
+      { content }
+    );
+    // if the server returns 200 with { success, message, data }
+    return response.data;
+  } catch (err: any) {
+    console.error('sendTradeMessage failed:', err);
+    // normalize into ApiResponse shape so FE can safely do res.success
+    return {
+      success: false,
+      data: null as any,
+      message: err.response?.data?.message || err.message || 'Unknown error',
+    };
+  }
 };
+
 
 export const markTradeAsPaid = async (
   tradeId: string
@@ -164,13 +175,9 @@ export const getCompletedPayerTrades = async (params: {
   payerId?: string;
   search?: string;
   dateRange?: string;
-}) => {
-  try {
-    const res: ResInterface = await api.get("/trade/payer-trade", { params });
-    return res;
-  } catch (error) {
-    handleApiError(error);
-  }
+}): Promise<ResInterface> => {
+  const res: ResInterface = await api.get("/trade/payer-trade", { params });
+  return res;
 };
 
 export const getWalletBalances = async () => {

@@ -85,11 +85,15 @@ const EscalatedDetails: React.FC = () => {
 
   const [cancelTradeState, setCancelTradeState] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const theme = useTheme();
 
-
+  const scrollToBottom = () => {
+    messagesEndRef?.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   const fetchTradeDetails = async () => {
     try {
@@ -243,61 +247,63 @@ const EscalatedDetails: React.FC = () => {
     }
   };
 
+
   const handleSendMessage = async () => {
     // 1) guard on having a trade ID & nonempty text
     if (!tradeId) return;
     const content = newMessage.trim();
-    if (!content) return;
+    if (!content || sendingMessage) return;
   
-    // 2) optimistic‐UI: add a “sending…” bubble
+    // Set sending state
+    setSendingMessage(true);
+    
+    // 2) optimistic‐UI: add a "sending…" bubble
     const tmpId = `tmp-${Date.now()}`;
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: tmpId,
-        content,
-        sender: { id: "me", fullName: "You", isCurrentUser: true },
-        createdAt: new Date().toISOString(),
-        status: "sending"
+    const tempMessage: Message = {
+      id: tmpId,
+      content,
+      sender: { 
+        id: "me", 
+        fullName: "You", 
+        isCurrentUser: true 
       },
-    ]);
+      createdAt: new Date().toISOString(),
+      status: "sending"
+    };
+    
+    setMessages(prev => [...prev, tempMessage]);
     setNewMessage("");
+    scrollToBottom();
   
     try {
       // 3) call API
       const res: ApiResponse<ChatMessage> = await sendTradeMessage(tradeId, content);
   
-      if (res.success) {
-        // 4a) mark that temp bubble as “sent”
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === tmpId ? { ...msg, status: "sent" } : msg
           )
         );
-        // 5) reload from server (pull in any other new messages)
-        await fetchTradeDetails();
-      } else {
-        // 4b) mark it as “failed”
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === tmpId ? { ...msg, status: "failed" } : msg
-          )
-        );
-        toast.error(res.message || "Failed to send message");
-      }
+
     } catch (err) {
       console.error("Error sending message:", err);
-      // 6) remove the temp bubble entirely
-      setMessages((prev) => prev.filter((msg) => msg.id !== tmpId));
+      // If the request itself failed (network error, etc.)
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === tmpId ? { ...msg, status: "failed" } : msg
+        )
+      );
       toast.error("Failed to send message");
+    } finally {
+      setSendingMessage(false);
     }
   };
-  
 
   const handleRetryMessage = async (message: Message) => {
     if (typeof message.content !== 'string' || !tradeId) return;
 
     try {
+      // Mark as sending
       setMessages(prev => prev.map(msg =>
         msg.id === message.id ? { ...msg, status: 'sending' } : msg
       ));
@@ -305,21 +311,30 @@ const EscalatedDetails: React.FC = () => {
       const response = await sendTradeMessage(tradeId, message.content);
 
       if (response?.success) {
+        // Mark as sent
         setMessages(prev => prev.map(msg =>
           msg.id === message.id ? { ...msg, status: 'sent' } : msg
         ));
+        
+        // Give user time to see "sent" status before refreshing
+        setTimeout(() => {
+          fetchTradeDetails();
+        }, 500);
       } else {
         setMessages(prev => prev.map(msg =>
           msg.id === message.id ? { ...msg, status: 'failed' } : msg
         ));
+        toast.error("Failed to send message");
       }
     } catch (error) {
       console.error("Error retrying message:", error);
       setMessages(prev => prev.map(msg =>
         msg.id === message.id ? { ...msg, status: 'failed' } : msg
       ));
+      toast.error("Failed to send message");
     }
   };
+
 
   const formatDate = (dateString: string) => {
     try {
@@ -378,6 +393,33 @@ const EscalatedDetails: React.FC = () => {
 
         <Box className="flex-1 p-4 overflow-y-auto">
           <Paper elevation={0} sx={{ p: 3, mb: 3, borderRadius: 2, border: "1px solid #eee" }}>
+
+          <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
+              Trade Information
+            </Typography>
+
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="caption" color="textSecondary">
+                Payment Method
+              </Typography>
+              <Typography>{escalatedTrade.paymentMethod || "N/A"}</Typography>
+            </Box>
+
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="caption" color="textSecondary">
+                Dollar Rate
+              </Typography>
+              <Typography>{Number(escalatedTrade.externalTrade.dollarRate).toLocaleString() || "N/A"}</Typography>
+            </Box>
+
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="caption" color="textSecondary">
+                BTC Rate
+              </Typography>
+              <Typography>{Number(escalatedTrade.externalTrade.btcRate).toLocaleString() || "N/A"}</Typography>
+            </Box>
+
+            
             <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
               Basic Information
             </Typography>
@@ -420,7 +462,7 @@ const EscalatedDetails: React.FC = () => {
                 Status
               </Typography>
               <Chip
-                label={escalatedTrade.status || "N/A"}
+                label="escalated"
                 size="small"
                 sx={{
                   ...(escalatedTrade.status?.toLowerCase() === "escalated"
@@ -465,30 +507,7 @@ const EscalatedDetails: React.FC = () => {
 
             <Divider sx={{ my: 2 }} />
 
-            <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-              Trade Information
-            </Typography>
 
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="caption" color="textSecondary">
-                Payment Method
-              </Typography>
-              <Typography>{escalatedTrade.paymentMethod || "N/A"}</Typography>
-            </Box>
-
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="caption" color="textSecondary">
-                Dollar Rate
-              </Typography>
-              <Typography>{Number(escalatedTrade.externalTrade.dollarRate).toLocaleString() || "N/A"}</Typography>
-            </Box>
-
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="caption" color="textSecondary">
-                BTC Rate
-              </Typography>
-              <Typography>{Number(escalatedTrade.externalTrade.btcRate).toLocaleString() || "N/A"}</Typography>
-            </Box>
 
             <Button
               variant="contained"
@@ -627,7 +646,7 @@ const EscalatedDetails: React.FC = () => {
                 bg = "#fdecea";
                 fg = theme.palette.error.dark;
               } else if (isSelf) {
-                bg = "rgb(241, 204, 84)";
+                bg = "#fff";
                 fg = theme.palette.primary.dark;
               } else if (isVendor) {
                 bg = "rgb(242, 252, 159)";

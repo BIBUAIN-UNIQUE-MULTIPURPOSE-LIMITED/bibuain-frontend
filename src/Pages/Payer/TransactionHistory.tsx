@@ -25,7 +25,6 @@ import {
   CircularProgress,
   Pagination,
   Stack,
-  Alert,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -373,6 +372,7 @@ const TransactionHistory: React.FC = () => {
     setPagination((p) => ({ ...p, currentPage: 1 }));
     fetchTrades();
   };
+  
 
   // Memoize filtered, sorted data
   const displayed = useMemo(() => {
@@ -504,39 +504,7 @@ const TransactionHistory: React.FC = () => {
               ? "All payers' completed trades"
               : "Your completed trades only"}
           </Typography>
-        </Box>
-
-        {/* Reset Alert */}
-        {showResetAlert && (
-          <Alert
-            severity="info"
-            sx={{ mb: 3 }}
-            action={
-              <>
-                <Typography variant="body2" fontWeight="bold" sx={{ mr: 2 }}>
-                  Reset in:{" "}
-                  {resetTime
-                    ? `${Math.floor(
-                        (resetTime.getTime() - Date.now()) / 3600000
-                      )}h ${Math.floor(
-                        ((resetTime.getTime() - Date.now()) % 3600000) / 60000
-                      )}m`
-                    : ""}
-                </Typography>
-                <Button 
-                  size="small" 
-                  variant="contained" 
-                  color="primary"
-                  onClick={handleManualReset}
-                >
-                  Reset Now
-                </Button>
-              </>
-            }
-          >
-            Transaction history will reset 2 hours after clock-out. You can also reset manually.
-          </Alert>
-        )}
+        </Box>           
 
         {/* Filters & Export */}
         <HeaderCard>
@@ -928,7 +896,7 @@ const TransactionHistory: React.FC = () => {
                 </TableBody>
               </Table>
             </TableContainer>
-
+            
             <PaginationContainer>
               <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                 <Typography>
@@ -966,6 +934,7 @@ const TransactionHistory: React.FC = () => {
                 />
               </Stack>
             </PaginationContainer>
+
           </>
         )}
       </Container>
