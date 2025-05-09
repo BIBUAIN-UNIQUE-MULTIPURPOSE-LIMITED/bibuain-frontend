@@ -31,9 +31,7 @@ import {
   getAllBanks,
   getFreeBanks,
   getFundedBanks,
-  getUsedBanks,
   getRolloverBanks,
-  getFreshBanks,
   useBank as spendBank,
 } from "../../api/bank";
 import { getCurrentShift } from "../../api/shift";
@@ -95,8 +93,6 @@ const Banks = () => {
           { label: "All Banks", value: "all" },
           { label: "Funded Banks", value: "funded" },
           { label: "Unfunded", value: "free" },
-          { label: "Fresh Banks", value: "fresh" },
-          { label: "Used Banks", value: "used" },
           { label: "Rollover Banks", value: "rollover" },
         ];
 
@@ -142,14 +138,8 @@ const Banks = () => {
         case "free":
           res = await getFreeBanks();
           break;
-        case "used":
-          res = await getUsedBanks();
-          break;
         case "rollover":
           res = await getRolloverBanks();
-          break;
-        case "fresh":
-          res = await getFreshBanks();
           break;
         default:
           res = await getAllBanks();

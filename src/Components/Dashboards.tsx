@@ -30,7 +30,7 @@ const Dashboard: React.FC<{ user: User | null }> = ({ user }) => {
       icon: (
         <DashboardOutlined className="text-[22px] sm:text-[26px] md:text-[28px] w-[22px] sm:w-[26px] md:w-[28px] mr-[10px]" />
       ),
-      allowedUserTypes: ["admin", "rater", "payer", "cc"],
+      allowedUserTypes: ["admin", "rater", "payer", "customer-support"],
     },
     {
       to: "/admin/message-templates",

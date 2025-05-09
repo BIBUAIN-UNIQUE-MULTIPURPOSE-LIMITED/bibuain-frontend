@@ -48,15 +48,6 @@ export const getFundedBanks = async () => {
   }
 };
 
-// Function to get used banks (Admin/Rater)
-export const getUsedBanks = async () => {
-  try {
-    const res: ResInterface = await api.get("/banks/used");
-    return res;
-  } catch (error) {
-    handleApiError(error);
-  }
-};
 
 // Function to get rollover banks (Admin/Rater)
 export const getRolloverBanks = async () => {
@@ -68,15 +59,6 @@ export const getRolloverBanks = async () => {
   }
 };
 
-// Function to get fresh banks (Admin/Rater)
-export const getFreshBanks = async () => {
-  try {
-    const res: ResInterface = await api.get("/banks/fresh");
-    return res;
-  } catch (error) {
-    handleApiError(error);
-  }
-};
 
 // Function to get a single bank by ID (Admin/Rater)
 export const getSingleBank = async (id: string) => {
