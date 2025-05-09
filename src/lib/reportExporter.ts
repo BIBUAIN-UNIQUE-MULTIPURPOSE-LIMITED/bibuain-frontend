@@ -1,14 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import pdfMake from 'pdfmake/build/pdfmake';
+import pdfMake from "pdfmake/build/pdfmake";
+import * as pdfFonts from "pdfmake/build/vfs_fonts";
+import { TDocumentDefinitions, Content } from "pdfmake/interfaces";
 
+pdfMake.vfs =
+  (pdfFonts as any).pdfMake?.vfs
+  ?? (pdfFonts as any).vfs;
+  
 
 // Define the interfaces used in the export (if needed)
 interface ComplaintData {
   complaintId: string;
   platform: string;
-  submittedBy: {
-    name: string;
-  };
+  submittedBy: { name: string };
   type: string;
   status: string;
   date: string;
@@ -19,9 +23,7 @@ interface ComplaintData {
 interface EscalatedTradeData {
   tradeId: string;
   platform: string;
-  escalatedBy: {
-    fullName: string;
-  };
+  escalatedBy: { fullName: string };
   amount: string;
   status: string;
   createdAt: string;
@@ -98,7 +100,6 @@ export const exportToCSV = (
       item.complaint,
     ]);
   } else if (type === "allTrades") {
-    // Vendor trades export: adjust headers as needed
     headers = [
       "Trade ID",
       "Platform",
@@ -213,32 +214,71 @@ export const exportToPDF = (
     ]);
   }
 
-  // Create the document definition
-  const docDefinition = {
-    content: [
-      { text: title, style: 'header' },
-      { text: `Generated on: ${new Date().toLocaleString()}`, style: 'subheader' },
+  const docDefinition: TDocumentDefinitions = {
+    pageSize: "A4",
+    pageMargins: [40, 60, 40, 60],
+    content: ([
+      {
+        text: title,
+        style: "header",
+        alignment: "center",
+        margin: [0, 0, 0, 20],
+      },
+      {
+        text: `Generated on: ${new Date().toLocaleString()}`,
+        style: "subheader",
+        alignment: "center",
+        margin: [0, 0, 0, 20],
+      },
       {
         table: {
           headerRows: 1,
-          body: [headers, ...tableData]
+          widths: Array(headers.length).fill("*"),
+          body: [
+            headers.map((h) => ({
+              text: h,
+              style: "tableHeader",
+              fillColor: "#2c3e50",
+              color: "#ffffff",
+            })),
+            ...tableData.map((row) =>
+              row.map((cell) => ({ text: cell, style: "tableCell" }))
+            ),
+          ],
         },
-        layout: 'lightHorizontalLines'
-      }
-    ],
-    styles: {
-      header: {
-        fontSize: 16,
-        bold: true,
-        margin: [0, 0, 0, 10]
+        layout: {
+          hLineWidth: (i, node) =>
+            i === 0 || i === node.table.body.length ? 1 : 0.5,
+          vLineWidth: () => 0.5,
+          hLineColor: () => "#aaaaaa",
+          vLineColor: () => "#aaaaaa",
+          fillColor: (rowIndex): string | undefined =>
+            rowIndex % 2 === 0 ? "#f5f5f5" : undefined,
+        },
       },
-      subheader: {
+    ] as Content[]),
+    styles: {
+      header: { fontSize: 18, bold: true },
+      subheader: { fontSize: 10 },
+      tableHeader: {
+        bold: true,
         fontSize: 10,
-        margin: [0, 0, 0, 20]
-      }
-    }
+        color: "white",
+        fillColor: "#2c3e50",
+      },
+      tableCell: { fontSize: 9, margin: [5, 5, 5, 5] },
+    },
+    defaultStyle: {
+      font: "Roboto",
+    },
   };
 
-  // Generate the PDF and download it
-  pdfMake.createPdf(docDefinition).download(`${type}_${new Date().toISOString().split("T")[0]}.pdf`);
+  try {
+    pdfMake
+      .createPdf(docDefinition)
+      .download(`${type}_${new Date().toISOString().split("T")[0]}.pdf`);
+  } catch (error) {
+    console.error("Error generating PDF:", error);
+    throw new Error("Failed to generate PDF");
+  }
 };

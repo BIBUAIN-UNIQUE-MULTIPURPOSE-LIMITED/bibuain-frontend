@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import toast from "react-hot-toast";
 import { ResInterface } from "../lib/interface";
 import { api, handleApiError } from "./user";
@@ -10,7 +11,23 @@ interface OfferUpdatePayload {
   usdtrate: number;
 }
 
+interface CostPriceResponse {
+  platform: string;
+  costPrice: number;
+}
 
+export interface ApiResponse<T = any> {
+  success: boolean;
+  message: string;
+  data?: T;
+}
+
+export interface ChatMessage {
+  id: string;
+  content: string;
+  sender?: { id: string; fullName: string };
+  createdAt: string;
+}
 
 export const getCurrentRates = async () => {
   try {
@@ -34,7 +51,6 @@ export const updateAccountRates = async (payload: {
   }
 };
 
-
 export const getAccounts = async () => {
   try {
     const res: ResInterface = await api.get("/trade/accounts");
@@ -44,7 +60,6 @@ export const getAccounts = async () => {
   }
 };
 
-// Trade Endpoints
 export const getLiveTrades = async () => {
   try {
     const res: ResInterface = await api.get("/trade/live-trades");
@@ -87,16 +102,28 @@ export const getTradeDetails = async (
   }
 };
 
-/**
- * Send a trade chat message.
- * Updated to match backend: route is POST /trade/message/:tradeId with { content } in the body.
- */
-export const sendTradeMessage = async (tradeId: string, message: string) => {
-  const response = await api.post(`/trade/${tradeId}/chat-message`, {
-    content: message
-  });
-  return response.data;
+export const sendTradeMessage = async (
+  tradeId: string,
+  content: string
+): Promise<ApiResponse<ChatMessage>> => {
+  try {
+    const response = await api.post<ApiResponse<ChatMessage>>(
+      `/trade/${tradeId}/chat-message`,
+      { content }
+    );
+    // if the server returns 200 with { success, message, data }
+    return response.data;
+  } catch (err: any) {
+    console.error('sendTradeMessage failed:', err);
+    // normalize into ApiResponse shape so FE can safely do res.success
+    return {
+      success: false,
+      data: null as any,
+      message: err.response?.data?.message || err.message || 'Unknown error',
+    };
+  }
 };
+
 
 export const markTradeAsPaid = async (
   tradeId: string
@@ -127,14 +154,13 @@ export const getFeedbackStats = async (params: { username: string; platform: str
   }
 };
 
-
 export const getCompletedTrades = async (params: {
   page?: number;
   limit?: number;
   payerId?: string;
   search?: string;
   dateRange?: string;
-})=> {
+}) => {
   try {
     const res: ResInterface = await api.get("/trade/completed", { params });
     return res;
@@ -143,23 +169,17 @@ export const getCompletedTrades = async (params: {
   }
 };
 
-
 export const getCompletedPayerTrades = async (params: {
   page?: number;
   limit?: number;
   payerId?: string;
   search?: string;
   dateRange?: string;
-})=> {
-  try {
-    const res: ResInterface = await api.get("/trade/payer-trade", { params });
-    return res;
-  } catch (error) {
-    handleApiError(error);
-  }
+}): Promise<ResInterface> => {
+  const res: ResInterface = await api.get("/trade/payer-trade", { params });
+  return res;
 };
 
-// Wallet and Offers Endpoints
 export const getWalletBalances = async () => {
   try {
     const res: ResInterface = await api.get("/trade/wallet-balances");
@@ -177,7 +197,6 @@ export const getOffersMargin = async () => {
     handleApiError(error);
   }
 };
-
 
 export const updateOffers = async (payload: OfferUpdatePayload) => {
   try {
@@ -214,7 +233,7 @@ export const reAssignTrade = async (tradeId: string) => {
     return res;
   } catch (error) {
     handleApiError(error);
-    throw error; 
+    throw error;
   }
 };
 
@@ -239,7 +258,6 @@ export const getUnfinishedTrades = async (page?: number, limit?: number) => {
     handleApiError(error);
   }
 };
-
 
 export const getCapRates = async (): Promise<ResInterface | void> => {
   try {
@@ -295,7 +313,6 @@ export const getVendorCoin = async () => {
   }
 };
 
-// Add to your trade API service (api/trade.ts)
 export const escalateTrade = async (
   tradeId: string,
   payload: {
@@ -336,8 +353,8 @@ export const getngnPlatformRate = async () => {
   try {
     const res: ResInterface = await api.get('/trade/get-ngnrates');
     return res;
-  } catch(error) {
-    handleApiError (error)
+  } catch (error) {
+    handleApiError(error)
   }
 };
 
@@ -370,3 +387,21 @@ export const getCCstats = async () => {
   }
 };
 
+export const getPlatformCostPrice = async (platform: string): Promise<CostPriceResponse | null> => {
+  try {
+    // This should get the raw response data
+    const response = await api.get<CostPriceResponse>(`/trade/costprice/${platform}`);
+    
+    // Check if the response data exists
+    if (!response || !response.data) {
+      throw new Error('No response received from server');
+    }
+    
+    // Return the response data which contains platform and costPrice directly
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching platform cost price:', error);
+    handleApiError(error);
+    return null;
+  }
+};

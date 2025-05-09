@@ -181,8 +181,8 @@ const CustomerSupport: React.FC = () => {
   const [filter, setFilter] = useState<"latest" | "oldest" | "">("");
   const previousMessageCounts = useRef<Record<string, number>>({});
   const initialLoad = useRef(true);
-  const refreshInterval = useRef<NodeJS.Timeout | null>(null); 
-  
+  const refreshInterval = useRef<NodeJS.Timeout | null>(null);
+
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -207,6 +207,7 @@ const CustomerSupport: React.FC = () => {
   const fetchData = async (showLoader = false) => {
     if (showLoader) setLoading(true);
     try {
+
       const [esData, compData, allData] = await Promise.all([getEscalatedTrades(), getCompletedTrades({}), getAllTrades()]);
       if (esData?.success) {
         setEscalatedTrades(esData.data.map((t: any) => ({
@@ -234,8 +235,8 @@ const CustomerSupport: React.FC = () => {
           amount: t.amount || 0,
           status: t.status,
           createdAt: t.createdAt,
-          ownerUsername: t.ownerUsername,
-          responderUsername: t.responderUsername,
+          ownerUsername: t.owner,
+          responderUsername: t.username,
           cryptoCurrencyCode: t.cryptoCurrencyCode,
           fiatCurrency: t.fiatCurrency,
           paymentMethod: t.paymentMethod,
@@ -250,7 +251,7 @@ const CustomerSupport: React.FC = () => {
           platform: t.platform || 'Unknown',
           amount: t.amount || 0,
           status: t.status || 'Unknown',
-          createdAt: t.createdAt || new Date().toISOString(),
+          createdAt: t.createdAt,
           ownerUsername: t.ownerUsername || 'N/A',
           responderUsername: t.assignedPayer?.fullName || t.responderUsername || 'N/A',
           cryptoCurrencyCode: t.cryptoCurrencyCode || 'N/A',
@@ -287,7 +288,7 @@ const CustomerSupport: React.FC = () => {
     }
   };
 
-  
+
   const checkForNewMessages = (trades: Trade[]) => {
     if (initialLoad.current) {
       initialLoad.current = false;
@@ -297,14 +298,14 @@ const CustomerSupport: React.FC = () => {
       }, {});
       return;
     }
-    
+
     trades.forEach(t => {
       const key = t.tradeHash || t.id || '';
       const prev = previousMessageCounts.current[key] || 0;
       const curr = t.messageCount || 0;
       if (curr > prev && t.responderUsername) sendNotification(t, curr - prev);
     });
-    
+
     previousMessageCounts.current = trades.reduce((acc, t) => {
       const key = t.tradeHash || t.id || '';
       return { ...acc, [key]: t.messageCount || 0 };
@@ -313,10 +314,21 @@ const CustomerSupport: React.FC = () => {
 
 
   useEffect(() => {
-    fetchData(true); 
+    fetchData(true);
+    return () => {
+      if (refreshInterval.current) {
+        clearInterval(refreshInterval.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    
+    fetchData(true);
+  
     refreshInterval.current = setInterval(() => {
       fetchData(false);
-    }, 3000);
+    }, 5000);
   
     return () => {
       if (refreshInterval.current) {
@@ -325,7 +337,6 @@ const CustomerSupport: React.FC = () => {
     };
   }, []);
   
-
 
   const handleFilterClick = (event: React.MouseEvent<HTMLElement>) => {
     setFilterAnchor(event.currentTarget);
@@ -424,19 +435,31 @@ const CustomerSupport: React.FC = () => {
   const filteredAllTrades = filterAndSortData(allTrades);
 
   const refreshData = async () => {
-    await fetchData(true).catch(err => console.error("Error refreshing data:", err));
+    setLoading(true);
+    try {
+      await fetchData(true);
+    } catch (err) {
+      console.error("Error refreshing data:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  if (loading) {
+  const totalRows =
+    escalatedTrades.length +
+    completedTrades.length +
+    allTrades.length;
+
+  if (loading && totalRows === 0) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
         <CircularProgress />
       </Box>
-    );
+    )
   }
 
   return (
-    <Box className="min-h-screen p-4 md:p-6">
+    <Box className="min-h-screen">
       {/* Header Section */}
       <Box className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <Box>
@@ -448,22 +471,22 @@ const CustomerSupport: React.FC = () => {
           </Typography>
         </Box>
         <Box className="flex items-center gap-4">
-        <ExportButtons
-  data={
-    tabValue === 0
-      ? filteredEscalatedTrades
-      : tabValue === 1
-        ? filteredCompletedTrades // Corrected to allTrades for Vendors Trade
-        : filteredAllTrades  // Corrected to completedTrades for AF Trades
-  }
-  type={
-    tabValue === 0
-      ? "escalatedTrades"
-      : tabValue === 1
-        ? "allTrades"   // Corrected type for Vendors Trade
-        : "completedTrades" // Corrected type for AF Trades
-  }
-/>
+          <ExportButtons
+            data={
+              tabValue === 0
+                ? filteredEscalatedTrades
+                : tabValue === 1
+                  ? filteredCompletedTrades
+                  : filteredAllTrades
+            }
+            type={
+              tabValue === 0
+                ? "escalatedTrades"
+                : tabValue === 1
+                  ? "allTrades"
+                  : "completedTrades"
+            }
+          />
 
         </Box>
       </Box>
@@ -471,11 +494,14 @@ const CustomerSupport: React.FC = () => {
       {/* Tabs Navigation */}
       <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
         <Tabs
+        variant="fullWidth" 
+
           value={tabValue}
           onChange={handleTabChange}
           sx={{
             "& .MuiTab-root": {
-              minWidth: 120,
+              flex: 1,
+              minWidth: 0,
               fontWeight: 600,
               fontSize: "0.875rem",
               textTransform: "none",
@@ -552,23 +578,26 @@ const CustomerSupport: React.FC = () => {
             </MenuItem>
           </Menu>
           <Tooltip title="Refresh data">
-            <IconButton
-              onClick={refreshData}
-              sx={{
-                bgcolor: "background.paper",
-                border: "1px solid",
-                borderColor: "divider",
-                "&:hover": { bgcolor: "action.hover" },
-              }}
-            >
-              <Refresh fontSize="small" />
-            </IconButton>
+            <span>
+              <IconButton
+                onClick={refreshData}
+                disabled={loading}
+                sx={{
+                  bgcolor: "background.paper",
+                  border: "1px solid",
+                  borderColor: "divider",
+                  "&:hover": { bgcolor: "action.hover" },
+                }}
+              >
+                {loading ? <CircularProgress size={20} /> : <Refresh fontSize="small" />}
+              </IconButton>
+            </span>
           </Tooltip>
         </Box>
       </Box>
 
       {/* Stats Cards */}
-      <Box className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+      {/* <Box className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <Paper
           elevation={0}
           sx={{
@@ -586,6 +615,7 @@ const CustomerSupport: React.FC = () => {
                 ? completedTrades.length
                 : allTrades.length}
           </Typography>
+
           <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
             {tabValue === 0
               ? "Total Escalations"
@@ -601,7 +631,7 @@ const CustomerSupport: React.FC = () => {
                 : `${filteredAllTrades.length} match current filters`}
           </Typography>
         </Paper>
-      </Box>
+      </Box> */}
 
       {/* Tab Panels */}
       <TabPanel value={tabValue} index={0}>

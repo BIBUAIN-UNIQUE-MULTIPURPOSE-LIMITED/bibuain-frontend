@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// pages/TradeDetailsPage.tsx
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
   Box,
@@ -14,31 +12,40 @@ import {
   Drawer,
   useTheme,
   useMediaQuery,
+  Tooltip,
 } from "@mui/material";
-import { Send as SendIcon, AttachFile, Menu as MenuIcon } from "@mui/icons-material";
+import { Send as SendIcon, AttachFile, Menu as MenuIcon, Sync } from "@mui/icons-material";
 import { format, formatDistanceToNow } from "date-fns";
 import { useParams } from "react-router-dom";
 import { getTradeDetails, sendTradeMessage } from "../../api/trade";
 import toast from "react-hot-toast";
-import { Formik, Form, FormikHelpers } from "formik";
-import * as Yup from "yup";
 import { useUserContext } from "../../Components/ContextProvider";
-// import { enUS } from "@mui/material/locale";
 import { enUS } from "date-fns/locale";
+
+interface BankAccountDetails {
+  bank_name?: string;
+  account_number?: string;
+  holder_name?: string;
+  amount?: string | number;
+  currency?: string;
+}
+
+interface ChatMessageContent {
+  bank_account?: BankAccountDetails;
+  bank_accounts?: BankAccountDetails;
+}
 
 interface ChatMessage {
   id: string;
-  content: any;
-  sender?: { id: string; fullName: string };
+  content: string | ChatMessageContent;
+  sender?: { id: string; fullName: string; avatar?: string };
   createdAt: string;
 }
-interface TradeChat {
-  messages: ChatMessage[];
-  attachments?: any[];
-}
+
 interface TradeRecord {
+  id: string;
   ownerUsername: string;
-  assignedPayer?: { fullName: string };
+  assignedPayer?: { fullName: string; avatar?: string };
   createdAt: Date;
   assignedAt?: Date;
   completedAt?: Date;
@@ -52,6 +59,7 @@ interface TradeRecord {
   notes?: string;
   feedback?: string;
 }
+
 interface TradeDetailsData {
   externalTrade: {
     btcRate: number | null;
@@ -62,16 +70,25 @@ interface TradeDetailsData {
     accountHolder: string;
     buyer_name: string;
   };
-  tradeChat: TradeChat;
+  tradeChat: { messages: ChatMessage[] };
   tradeRecord: TradeRecord;
   tradeDuration: number | null;
 }
-interface ChatFormValues {
-  message: string;
+
+interface Message {
+  id: string;
+  content: string | ChatMessageContent;
+  sender: {
+    id: string;
+    fullName: string;
+    avatar?: string;
+    isCurrentUser?: boolean;
+  };
+  createdAt: string;
+  status?: 'sending' | 'sent' | 'failed';
 }
-const messageValidation = Yup.object({
-  message: Yup.string().required("Message is required"),
-});
+
+const DEFAULT_AVATAR = "/default.png";
 
 const TradeDetailsPage: React.FC = () => {
   const { platform, tradeHash, accountId } = useParams<{
@@ -87,11 +104,13 @@ const TradeDetailsPage: React.FC = () => {
   const [mobileOpen, setMobileOpen] = useState<boolean>(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const [newMessage, setNewMessage] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
-
 
   const formatWATDateTime = (date: Date | string) => {
     try {
@@ -119,7 +138,6 @@ const TradeDetailsPage: React.FC = () => {
       return 'Invalid date';
     }
   };
-  
 
   const fetchTradeData = useCallback(async () => {
     setLoading(true);
@@ -131,6 +149,15 @@ const TradeDetailsPage: React.FC = () => {
       const res = await getTradeDetails(platform, tradeHash, accountId);
       if (res?.success) {
         setTradeDetailsData(res.data);
+        // Initialize messages with proper sender information
+        setMessages(res.data.tradeChat.messages.map(msg => ({
+          ...msg,
+          sender: {
+            ...msg.sender,
+            isCurrentUser: msg.sender?.id === currentUserId,
+            avatar: msg.sender?.avatar || DEFAULT_AVATAR
+          }
+        })));
       } else {
         toast.error("Failed to fetch trade details.");
       }
@@ -140,52 +167,100 @@ const TradeDetailsPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [platform, tradeHash, accountId]);
+  }, [platform, tradeHash, accountId, currentUserId]);
 
   useEffect(() => {
     fetchTradeData();
   }, [fetchTradeData]);
 
   useEffect(() => {
-    if (tradeDetailsData?.tradeChat?.messages.length) {
-      scrollToBottom();
+    scrollToBottom();
+  }, [messages]);
+
+  const handleSendMessage = async () => {
+    const tradeId = tradeDetailsData?.tradeRecord.id;
+    if (!tradeId) return;
+    const content = newMessage.trim();
+    if (!content || sendingMessage) return;
+
+    setSendingMessage(true);
+    
+    const tmpId = `tmp-${Date.now()}`;
+    const tempMessage: Message = {
+      id: tmpId,
+      content,
+      sender: { 
+        id: currentUserId, 
+        fullName: user?.fullName || "You",
+        avatar: user?.avatar || DEFAULT_AVATAR,
+        isCurrentUser: true 
+      },
+      createdAt: new Date().toISOString(),
+      status: "sending"
+    };
+    
+    setMessages(prev => [...prev, tempMessage]);
+    setNewMessage("");
+    scrollToBottom();
+
+    try {
+      await sendTradeMessage(tradeId, content);
+
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === tmpId ? { ...msg, status: "sent" } : msg
+        )
+      );
+
+      // Refresh messages from server after a short delay
+      setTimeout(() => {
+        fetchTradeData();
+      }, 500);
+    } catch (err) {
+      console.error("Error sending message:", err);
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.id === tmpId ? { ...msg, status: "failed" } : msg
+        )
+      );
+      toast.error("Failed to send message");
+    } finally {
+      setSendingMessage(false);
     }
-  }, [tradeDetailsData?.tradeChat?.messages]);
+  };
 
-// inside your TradeDetailsPage component, *replace* your old handleSendMessage:
-const handleSendMessage = async (
-  values: ChatFormValues,
-  { resetForm, setSubmitting }: FormikHelpers<ChatFormValues>
-) => {
-  // 1) make sure we have all the identifiers
-  if (!platform || !tradeHash || !accountId) {
-    toast.error("Missing trade identifiers.");
-    setSubmitting(false);
-    return;
-  }
+  const handleRetryMessage = async (message: Message) => {
+    if (typeof message.content !== 'string' || !tradeDetailsData?.tradeRecord.id) return;
 
-  try {
-    // 2) call your API
-    const res = await sendTradeMessage(
-      accountId,
-      values.message.trim()
-    );
+    try {
+      setMessages(prev => prev.map(msg =>
+        msg.id === message.id ? { ...msg, status: 'sending' } : msg
+      ));
 
-    if (res?.success) {
-      resetForm();
-      await fetchTradeData();
-      scrollToBottom();
-    } else {
-      toast.error(res?.message || "Failed to send message.");
+      const response = await sendTradeMessage(tradeDetailsData.tradeRecord.id, message.content);
+
+      if (response?.success) {
+        setMessages(prev => prev.map(msg =>
+          msg.id === message.id ? { ...msg, status: 'sent' } : msg
+        ));
+        
+        setTimeout(() => {
+          fetchTradeData();
+        }, 500);
+      } else {
+        setMessages(prev => prev.map(msg =>
+          msg.id === message.id ? { ...msg, status: 'failed' } : msg
+        ));
+        toast.error("Failed to send message");
+      }
+    } catch (error) {
+      console.error("Error retrying message:", error);
+      setMessages(prev => prev.map(msg =>
+        msg.id === message.id ? { ...msg, status: 'failed' } : msg
+      ));
+      toast.error("Failed to send message");
     }
-  } catch (err) {
-    console.error("Error sending message:", err);
-    toast.error("Failed to send message.");
-  } finally {
-    setSubmitting(false);
-  }
-};
-
+  };
 
   if (loading) {
     return (
@@ -202,7 +277,6 @@ const handleSendMessage = async (
     );
   }
 
-  // Guard: if we failed to load data
   if (!tradeDetailsData) {
     return (
       <Box sx={{ p: 3, textAlign: "center" }}>
@@ -211,12 +285,9 @@ const handleSendMessage = async (
     );
   }
 
-  // Destructure safely
-  const { externalTrade, tradeChat, tradeRecord, tradeDuration } = tradeDetailsData;
-  const messages: ChatMessage[] = tradeChat.messages;
+  const { externalTrade, tradeRecord } = tradeDetailsData;
   const vendorUsername = tradeRecord.ownerUsername;
 
-  // Left panel
   const TradeDetailsPanel = () => (
     <Box sx={{ p: 3, overflowY: "auto", height: "80vh" }}>
       <Typography sx={{ fontWeight: "bold", mb: 2 }}>Trade Details</Typography>
@@ -237,7 +308,7 @@ const handleSendMessage = async (
           Trade Duration
         </Typography>
         <Typography>
-          {tradeDuration !== null ? `${tradeDuration} sec` : "N/A"}
+          {tradeDetailsData.tradeDuration !== null ? `${tradeDetailsData.tradeDuration} sec` : "N/A"}
         </Typography>
       </Box>
 
@@ -264,11 +335,11 @@ const handleSendMessage = async (
         <Typography>{tradeRecord.margin ?? "N/A"}</Typography>
       </Box>
       <Box sx={{ mb: 2 }}>
-  <Typography color="textSecondary">Date/Time</Typography>
-  <Typography>
-    {formatWATDateTime(tradeRecord.createdAt)}
-  </Typography>
-</Box>
+        <Typography color="textSecondary">Date/Time</Typography>
+        <Typography>
+          {formatWATDateTime(tradeRecord.createdAt)}
+        </Typography>
+      </Box>
       <Box sx={{ mb: 2 }}>
         <Typography color="textSecondary">Flagged</Typography>
         <Typography>{tradeRecord.flagged ? "Yes" : "No"}</Typography>
@@ -288,7 +359,6 @@ const handleSendMessage = async (
     </Box>
   );
 
-  // Right panel
   const ChatWindow = () => (
     <Box
       sx={{
@@ -297,7 +367,6 @@ const handleSendMessage = async (
         flexDirection: "column",
       }}
     >
-      {/* Header */}
       <Paper
         sx={{
           p: 2,
@@ -316,7 +385,10 @@ const handleSendMessage = async (
             <MenuIcon />
           </IconButton>
         )}
-        <Avatar sx={{ mr: 2 }}>
+        <Avatar 
+          src={tradeRecord.assignedPayer?.avatar || DEFAULT_AVATAR} 
+          sx={{ mr: 2 }}
+        >
           {tradeRecord.assignedPayer?.fullName.charAt(0) || "A"}
         </Avatar>
         <Box>
@@ -329,7 +401,6 @@ const handleSendMessage = async (
         </Box>
       </Paper>
 
-      {/* Messages */}
       <Box
         sx={{
           flex: 1,
@@ -344,21 +415,19 @@ const handleSendMessage = async (
           </Box>
         ) : (
           messages.map((msg) => {
-            const senderId   = msg.sender?.id || "";
+            const senderId = msg.sender?.id || "";
             const senderName = msg.sender?.fullName?.trim() || "";
             const date = new Date(msg.createdAt);
             const formattedDate = isNaN(date.getTime())
               ? "Invalid date"
               : format(date, "MMM d, h:mm a");
 
-            // classify
             const isExpired = typeof msg.content === "string" && /expired/i.test(msg.content);
             const isCancel = typeof msg.content === "string" && /cancel/i.test(msg.content);
-const isSelf    = senderId === currentUserId;
-const isVendor  = senderName === vendorUsername;
-const isBot     = senderName === "System" || senderId === "system";
+            const isSelf = senderId === currentUserId;
+            const isVendor = senderName === vendorUsername;
+            const isBot = senderName === "System" || senderId === "system";
 
-            // pick colors
             let bg: string, fg: string;
             if (isExpired) {
               bg = "#fdecea";
@@ -367,51 +436,49 @@ const isBot     = senderName === "System" || senderId === "system";
               bg = "#fdecea";
               fg = theme.palette.error.dark;
             } else if (isBot) {
-              bg ="rgb(10, 144, 41)";
+              bg = "rgb(10, 144, 41)";
               fg = theme.palette.grey[800];
             } else if (isVendor) {
-              bg ="rgb(242, 252, 159)";
+              bg = "rgb(242, 252, 159)";
               fg = theme.palette.warning.dark;
             } else if (isSelf) {
-              bg ="rgb(241, 204, 84)";
+              bg = "rgb(246, 245, 239)";
               fg = theme.palette.primary.dark;
             } else {
               bg = theme.palette.background.paper;
               fg = theme.palette.text.primary;
             }
 
-            // render content
-            let messageContent: React.ReactNode;
-            if (
-              typeof msg.content === "object" &&
-              (msg.content.bank_account || msg.content.bank_accounts)
-            ) {
-              const b = msg.content.bank_account || msg.content.bank_accounts;
-              messageContent = (
-                <>
-                  <Typography
-                    variant="subtitle2"
-                    sx={{ fontWeight: "bold", mb: 1, bg:"yellow" }}
-                  >
-                    Bank Details:
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>Bank:</strong> {b.bank_name || "N/A"}
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>Account #:</strong> {b.account_number || "N/A"}
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>Holder:</strong> {b.holder_name || "N/A"}
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>Amt:</strong> {b.amount || "N/A"} {b.currency || ""}
-                  </Typography>
-                </>
-              );
-            } else {
-              messageContent = <Typography variant="body1">{msg.content}</Typography>;
-            }
+            const renderMessageContent = () => {
+              if (typeof msg.content === "string") {
+                return <Typography variant="body1">{msg.content}</Typography>;
+              }
+
+              const bankDetails = msg.content.bank_account || msg.content.bank_accounts;
+              if (bankDetails) {
+                return (
+                  <>
+                    <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1 }}>
+                      Bank Details:
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Bank:</strong> {bankDetails.bank_name || "N/A"}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Account #:</strong> {bankDetails.account_number || "N/A"}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Holder:</strong> {bankDetails.holder_name || "N/A"}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Amt:</strong> {bankDetails.amount || "N/A"} {bankDetails.currency || ""}
+                    </Typography>
+                  </>
+                );
+              }
+
+              return <Typography variant="body1">Unknown message format</Typography>;
+            };
 
             return (
               <Box
@@ -423,7 +490,12 @@ const isBot     = senderName === "System" || senderId === "system";
                   mb: 2,
                 }}
               >
-                <Avatar sx={{ mx: 1 }}>{senderName.charAt(0)}</Avatar>
+                <Avatar 
+                  src={msg.sender?.avatar || DEFAULT_AVATAR}
+                  sx={{ mx: 1 }}
+                >
+                  {senderName.charAt(0)}
+                </Avatar>
                 <Box
                   sx={{
                     maxWidth: "70%",
@@ -432,15 +504,30 @@ const isBot     = senderName === "System" || senderId === "system";
                     backgroundColor: bg,
                     color: fg,
                     boxShadow: 1,
+                    opacity: msg.status === "sending" ? 0.7 : 1,
+                    border: msg.status === "failed" ? "1px solid red" : "none",
                   }}
                 >
-                  {messageContent}
-                  <Typography
-                    variant="caption"
-                    sx={{ display: "block", mt: 0.5, opacity: 0.7 }}
-                  >
-                    {formattedDate}
-                  </Typography>
+                  {renderMessageContent()}
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 0.5 }}>
+                    <Typography
+                      variant="caption"
+                      sx={{ opacity: 0.7 }}
+                    >
+                      {formattedDate}
+                    </Typography>
+                    {msg.status === "failed" && (
+                      <Tooltip title="Failed to send - click to retry">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleRetryMessage(msg)}
+                          sx={{ color: "error.main" }}
+                        >
+                          <Sync fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </Box>
                 </Box>
               </Box>
             );
@@ -449,14 +536,6 @@ const isBot     = senderName === "System" || senderId === "system";
         <div ref={messagesEndRef} />
       </Box>
 
-      {/* Input */}
-      <Formik
-  initialValues={{ message: "" }}
-  validationSchema={messageValidation}
-  onSubmit={handleSendMessage}
->
-  {({ values, handleChange, isSubmitting }) => (
-    <Form>
       <Paper
         sx={{
           p: 2,
@@ -472,22 +551,25 @@ const isBot     = senderName === "System" || senderId === "system";
         <InputBase
           fullWidth
           placeholder="Type a message..."
-          name="message"
-          value={values.message}
-          onChange={handleChange}
+          value={newMessage}
+          onChange={(e) => setNewMessage(e.target.value)}
+          onKeyPress={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSendMessage();
+            }
+          }}
+          multiline
+          maxRows={4}
         />
         <IconButton
-          type="submit"
+          onClick={handleSendMessage}
           color="primary"
-          disabled={isSubmitting || !values.message.trim()}
+          disabled={!newMessage.trim() || sendingMessage}
         >
           <SendIcon />
         </IconButton>
       </Paper>
-    </Form>
-  )}
-</Formik>
-
     </Box>
   );
 

@@ -7,6 +7,11 @@ import {
   Card,
   Alert,
   CircularProgress,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
+  SelectChangeEvent,
 } from "@mui/material";
 import {
   AccountBalance as BankIcon,
@@ -17,12 +22,34 @@ import {
   Numbers as NumbersIcon,
   Notes as NotesIcon,
 } from "@mui/icons-material";
-import { addBank, getSingleBank, updateBank } from "../../api/bank";
+import {
+  addBank,
+  getSingleBank,
+  updateBank,
+} from "../../api/bank";
 import toast from "react-hot-toast";
 import { errorStyles } from "../../lib/constants";
-import { IBank } from "../../lib/interface";
 import ClockedAlt from "../../Components/ClockedAlt";
 import { useUserContext } from "../../Components/ContextProvider";
+
+// client-side BankTag enum
+enum BankTag {
+  FRESH = "fresh",
+  UNFUNDED = "unfunded",
+  FUNDED = "funded",
+  USED = "used",
+  ROLLOVER = "rollover",
+}
+
+type FormData = {
+  id?: string;
+  bankName: string;
+  accountName: string;
+  accountNumber: string;
+  funds: number;
+  additionalNotes: string;
+  tag: BankTag;
+};
 
 const CreateBank: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -30,236 +57,159 @@ const CreateBank: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
-  const [bank, setBank] = useState<IBank | null>(null);
   const { user } = useUserContext();
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     bankName: "",
     accountName: "",
     accountNumber: "",
-    funds: "",
+    funds: 0,
     additionalNotes: "",
-    id: "",
+    tag: BankTag.UNFUNDED,
   });
+
   useEffect(() => {
-    const fetchBankData = async () => {
-      if (bankId) {
-        setLoading(true);
-        try {
-          const data = await getSingleBank(bankId);
-          if (data?.success) {
-            const bankData = {
-              id: data.data.id,
-              bankName: data.data.bankName,
-              accountName: data.data.accountName,
-              accountNumber: data.data.accountNumber,
-              funds: data.data?.funds,
-              additionalNotes: data.data?.additionalNotes,
-            };
-            setBank(data.data);
-            setFormData(bankData);
-          }
-        } catch (err) {
-          setError(`Failed to fetch bank details: ${err}`);
-        } finally {
-          setLoading(false);
+    if (!bankId) return;
+    setLoading(true);
+    getSingleBank(bankId)
+      .then(res => {
+        if (res?.success) {
+          const b = res.data;
+          setFormData({
+            id: b.id,
+            bankName: b.bankName,
+            accountName: b.accountName,
+            accountNumber: b.accountNumber,
+            funds: b.funds,
+            additionalNotes: b.additionalNotes || "",
+            tag: b.tag as BankTag,
+          });
         }
-      }
+      })
+      .catch(err => setError(`Failed to fetch bank: ${err}`))
+      .finally(() => setLoading(false));
+  }, [bankId]);
+
+  const handleFieldChange =
+    (field: keyof FormData) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = field === "funds" ? Number(e.target.value) : e.target.value;
+      setFormData(prev => ({ ...prev, [field]: value }));
     };
 
-    fetchBankData();
-  }, [bankId]);
+  const handleTagChange = (e: SelectChangeEvent) => {
+    setFormData(prev => ({ ...prev, tag: e.target.value as BankTag }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      if (bank !== null && bankId) {
-        const data = await updateBank(formData.id, formData);
-        if (data?.success) {
-          navigate("/banks");
-          return;
-        }
+      if (!formData.bankName || !formData.accountName || !formData.accountNumber) {
+        toast.error("Please fill required fields", errorStyles);
       } else {
-        if (
-          !formData.accountName ||
-          !formData.accountNumber ||
-          !formData.bankName
-        ) {
-          return toast.error("Incomplete fields!", errorStyles);
+        let res;
+        if (bankId && formData.id) {
+          res = await updateBank(formData.id, formData);
+        } else {
+          res = await addBank(formData);
         }
-        const data = await addBank(formData);
-        if (data?.success) {
-          navigate("/banks");
-          return;
-        }
+        if (res?.success) navigate("/banks");
       }
     } catch (err) {
-      setError(`Failed to save bank details : ${err}`);
+      setError(`Failed to save bank: ${err}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange =
-    (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
-      setFormData((prev) => ({
-        ...prev,
-        [field]: e.target.value,
-      }));
-    };
+  if (!user?.clockedIn && user?.userType !== "admin") return <ClockedAlt />;
 
-  const textFieldStyle = {
-    "& .MuiOutlinedInput-root": {
-      height: "60px",
-    },
-    "& .MuiOutlinedInput-input": {
-      padding: "8px 14px",
-    },
-    "& .MuiInputLabel-root": {
-      transform: "translate(14px, 12px) scale(1)",
-    },
-    "& .MuiInputLabel-shrink": {
-      transform: "translate(14px, -9px) scale(0.75)",
-    },
-  };
-
-  if (!user.clockedIn && user.userType !== "admin") {
-    return <ClockedAlt />;
-  }
   return (
-    <div className="h-[80vh] w-full flex px-[7rem] justify-center items-center font-primary">
-      <div className="w-full  mx-auto">
-        {/* Simple Header */}
-        <div className="mb-6 flex items-center gap-3">
-          <Button
-            startIcon={<ArrowBackIcon />}
-            className="text-text2 normal-case"
-            onClick={() => window.history.back()}
-          >
-            Back
-          </Button>
-          <h1 className="text-2xl font-semibold text-foreground">
-            {bankId ? "Edit Bank Account" : "Create New Bank Account"}
-          </h1>
-        </div>
-
-        {/* Compact Form */}
-        <Card className="shadow-md">
-          {error && (
-            <Alert severity="error" className="rounded-none">
-              {error}
-            </Alert>
-          )}
-
-          <form onSubmit={handleSubmit} className="p-6">
+    <div className="h-[80vh] w-full flex justify-center items-center font-primary">
+      <div className="w-full max-w-xl">
+        <Button
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate(-1)}
+          className="text-text2 normal-case mb-4"
+        >
+          Back
+        </Button>
+        <Card className="p-6 shadow-md">
+          {error && <Alert severity="error">{error}</Alert>}
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              {/* First Row */}
               <TextField
                 label="Bank Name"
                 required
                 fullWidth
                 value={formData.bankName}
-                onChange={handleChange("bankName")}
+                onChange={handleFieldChange("bankName")}
                 InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <BankIcon className="text-text2" fontSize="small" />
-                    </InputAdornment>
-                  ),
+                  startAdornment: <InputAdornment position="start"><BankIcon /></InputAdornment>,
                 }}
-                sx={textFieldStyle}
               />
               <TextField
                 label="Account Name"
                 required
                 fullWidth
                 value={formData.accountName}
-                onChange={handleChange("accountName")}
+                onChange={handleFieldChange("accountName")}
                 InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <PersonIcon className="text-text2" fontSize="small" />
-                    </InputAdornment>
-                  ),
+                  startAdornment: <InputAdornment position="start"><PersonIcon /></InputAdornment>,
                 }}
-                sx={textFieldStyle}
               />
-
-              {/* Second Row */}
               <TextField
                 label="Account Number"
                 required
                 fullWidth
                 value={formData.accountNumber}
-                onChange={handleChange("accountNumber")}
+                onChange={handleFieldChange("accountNumber")}
                 InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <NumbersIcon className="text-text2" fontSize="small" />
-                    </InputAdornment>
-                  ),
+                  startAdornment: <InputAdornment position="start"><NumbersIcon /></InputAdornment>,
                 }}
-                sx={textFieldStyle}
               />
               <TextField
-                label="Initial Funds"
+                label="Funds"
                 type="number"
                 required
                 fullWidth
                 value={formData.funds}
-                onChange={handleChange("funds")}
+                onChange={handleFieldChange("funds")}
                 InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <MoneyIcon className="text-text2" fontSize="small" />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={textFieldStyle}
-              />
-
-              {/* Full Width Notes Field */}
-              <TextField
-                label="Additional Notes"
-                multiline
-                rows={3}
-                fullWidth
-                className="col-span-2 mt-2"
-                value={formData.additionalNotes}
-                onChange={handleChange("additionalNotes")}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <NotesIcon className="text-text2" fontSize="small" />
-                    </InputAdornment>
-                  ),
+                  startAdornment: <InputAdornment position="start"><MoneyIcon /></InputAdornment>,
                 }}
               />
             </div>
-
-            {/* Action Buttons */}
-            <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-              <Button
-                variant="outlined"
-                className="normal-case"
-                onClick={() => window.history.back()}
+            <FormControl fullWidth>
+              <InputLabel id="tag-label">Tag</InputLabel>
+              <Select
+                labelId="tag-label"
+                value={formData.tag}
+                label="Tag"
+                onChange={handleTagChange}
               >
-                Cancel
-              </Button>
+                {Object.values(BankTag).map(val => (
+                  <MenuItem key={val} value={val}>{val}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField
+              label="Additional Notes"
+              multiline rows={3}
+              fullWidth
+              value={formData.additionalNotes}
+              onChange={handleFieldChange("additionalNotes")}
+              InputProps={{
+                startAdornment: <InputAdornment position="start"><NotesIcon /></InputAdornment>,
+              }}
+            />
+            <div className="flex justify-end gap-4">
+              <Button onClick={() => navigate(-1)}>Cancel</Button>
               <Button
                 type="submit"
                 variant="contained"
+                startIcon={loading ? <CircularProgress size={20} /> : <SaveIcon />}
                 disabled={loading}
-                startIcon={
-                  loading ? <CircularProgress size={20} /> : <SaveIcon />
-                }
-                className="normal-case bg-button hover:bg-primary2"
-                sx={{
-                  backgroundColor: "#F8BC08",
-                  "&:hover": {
-                    backgroundColor: "#C6980C",
-                  },
-                }}
               >
                 {loading ? "Saving..." : bankId ? "Update" : "Create"}
               </Button>
