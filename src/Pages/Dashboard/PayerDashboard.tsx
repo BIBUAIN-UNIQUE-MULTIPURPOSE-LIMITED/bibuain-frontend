@@ -152,7 +152,7 @@ const PayerDashboard = () => {
       // Check if trade status is terminal - must be first
       const terminalStatuses = ["escalated", "paid", "completed", "successful", "cancelled", "expired"];
       if (terminalStatuses.includes(newTrade.status?.toLowerCase())) {
-        console.log(`Trade in terminal state: ${newTrade.status}`);
+        // console.log(`Trade in terminal state: ${newTrade.status}`);
         setAssignedTrade(null);
         setPaymentInfo({});
         setMessages([]);
@@ -267,13 +267,15 @@ const PayerDashboard = () => {
   }, [user]);
 
   // Polling mechanism: silently refresh trade data every 5 seconds.
-  useEffect(() => {
-    if (!user) return;
-    const intervalId = setInterval(() => {
-      fetchTradeData(false);
-    }, 3000);
-    return () => clearInterval(intervalId);
-  }, [user]);
+useEffect(() => {
+  if (!user) return;
+
+  const intervalId = setInterval(() => {
+    fetchTradeData(false);
+  }, 3000);
+
+  return () => clearInterval(intervalId);
+}, [user, assignedTrade]);
 
   // Refresh handler for manual refresh
   const handleRefresh = async () => {
@@ -310,6 +312,7 @@ const PayerDashboard = () => {
       const response = await markTradeAsPaid(assignedTrade.id);
       if (response?.success) {
         toast.success("Trade marked as paid successfully!", successStyles);
+        localStorage.removeItem(`elapsed_start_${assignedTrade.id}`);
         setTimeout(() => {
           fetchTradeData(true);
           setAssignedTrade(null);
@@ -332,6 +335,7 @@ const PayerDashboard = () => {
 
   const handleEscalationSuccess = async () => {
     // Clear current trade data
+    localStorage.removeItem(`elapsed_start_${assignedTrade.id}`);
     setAssignedTrade(null);
     setPaymentInfo({});
     setMessages([]);
@@ -378,24 +382,31 @@ const PayerDashboard = () => {
   };
 
   useEffect(() => {
-    if (!assignedTrade?.assignedAt) {
-      setElapsed(0);
-      return;
+    if (!assignedTrade?.id) return;
+  
+    const tradeId = assignedTrade.id;
+    const storageKey = `elapsed_start_${tradeId}`;
+  
+    let startTime: number;
+  
+    const storedStart = localStorage.getItem(storageKey);
+    if (storedStart) {
+      startTime = parseInt(storedStart, 10);
+    } else {
+      startTime = Date.now();
+      localStorage.setItem(storageKey, startTime.toString());
     }
-
-    const startTime = new Date(assignedTrade.assignedAt).getTime();
+  
     const calculateElapsed = () => Math.floor((Date.now() - startTime) / 1000);
-
-    // Set initial value immediately
     setElapsed(calculateElapsed());
-
-    // Update every second
+  
     const timer = setInterval(() => {
       setElapsed(calculateElapsed());
     }, 1000);
-
+  
     return () => clearInterval(timer);
-  }, [assignedTrade?.assignedAt]);
+  }, [assignedTrade?.id]);
+  
 
   useEffect(() => {
     if (!user?.id) return;
@@ -490,7 +501,7 @@ const PayerDashboard = () => {
   // Rate comparison logic
   const btcRateNum = paymentInfo.btcRate ? Number(paymentInfo.btcRate) : null;
 
-  console.log("Cost Price", costPrice);
+  // console.log("Cost Price", costPrice);
   const isGoodRate =
     costPrice !== null &&
     btcRateNum !== null &&

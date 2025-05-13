@@ -322,22 +322,6 @@ const CustomerSupport: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    
-    fetchData(true);
-  
-    refreshInterval.current = setInterval(() => {
-      fetchData(false);
-    }, 5000);
-  
-    return () => {
-      if (refreshInterval.current) {
-        clearInterval(refreshInterval.current);
-      }
-    };
-  }, []);
-  
-
   const handleFilterClick = (event: React.MouseEvent<HTMLElement>) => {
     setFilterAnchor(event.currentTarget);
   };

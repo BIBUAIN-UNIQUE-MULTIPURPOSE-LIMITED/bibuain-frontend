@@ -111,7 +111,7 @@ const TransactionHistory: React.FC = () => {
   // Main filters
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedPayer, setSelectedPayer] = useState("");
-  const [dateRange, setDateRange] = useState<"" | "today" | "week" | "month">("");
+  const [dateRange, setDateRange] = useState<"" | "today" | "week" | "month">("today");
   const [sortConfig, setSortConfig] = useState<{
     field: keyof Trade | "";
     direction: "asc" | "desc";

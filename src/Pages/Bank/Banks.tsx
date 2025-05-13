@@ -36,7 +36,6 @@ import {
 } from "../../api/bank";
 import { getCurrentShift } from "../../api/shift";
 import Loading from "../../Components/Loading";
-import { formatDate } from "../../lib/constants";
 import { useNavigate } from "react-router-dom";
 import { useUserContext } from "../../Components/ContextProvider";
 import ClockedAlt from "../../Components/ClockedAlt";
@@ -57,6 +56,7 @@ interface Bank {
   accountName: string;
   funds: number;
   tag: BankTag;
+  usedBy?: string | null;
 }
 
 type TabOption = "all" | "funded" | "free" | "used" | "rollover" | "fresh";
@@ -226,7 +226,7 @@ const Banks = () => {
               <TableCell className="font-semibold">Account Number</TableCell>
               <TableCell className="font-semibold">Funds</TableCell>
               <TableCell className="font-semibold">Status</TableCell>
-              <TableCell className="font-semibold">Created Date</TableCell>
+              <TableCell className="font-semibold">Used By (Payer)</TableCell>
               <TableCell
                 align="center"
                 className="font-semibold"
@@ -254,7 +254,7 @@ const Banks = () => {
                     {bank.accountNumber}
                   </TableCell>
                   <TableCell className="font-semibold">
-                    ${bank.funds.toLocaleString()}
+                  &#8358;{bank.funds.toLocaleString()}
                   </TableCell>
                   <TableCell>
                     <Chip 
@@ -263,9 +263,7 @@ const Banks = () => {
                       size="small"
                     />
                   </TableCell>
-                  <TableCell className="text-text2">
-                    {formatDate(new Date(bank.createdAt))}
-                  </TableCell>
+                  <TableCell>{bank.usedBy ?? "-"}</TableCell>
                   <TableCell align="center">
                     <IconButton
                       size="small"
