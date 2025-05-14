@@ -684,7 +684,7 @@ useEffect(() => {
                 <div className="space-y-2">
                   <p className="text-sm text-gray-500">Dollar Rate</p>
                   <h3 className="text-lg font-semibold text-gray-800">
-                    {paymentInfo?.dollarRate ? Number(paymentInfo.dollarRate).toFixed(2) : "N/A"}
+                    {paymentInfo?.dollarRate ? Number(paymentInfo.dollarRate).toFixed(0) : "N/A"}
                   </h3>
                 </div>
                 <div className="space-y-1">

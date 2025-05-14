@@ -1,6 +1,5 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Table,
   TableBody,
@@ -41,10 +40,10 @@ import {
   getCompletedTrades,
   getAllTrades
 } from "../../api/trade";
-import { createNotification } from "../../api/user";
 import { exportToCSV, exportToPDF } from "../../lib/reportExporter";
 import { format, formatDistanceToNow } from "date-fns";
 import { enUS } from "date-fns/locale";
+import { debounce } from "lodash";
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -52,15 +51,21 @@ interface TabPanelProps {
   value: number;
 }
 
+interface LoadingState {
+  initial: boolean;
+  refresh: boolean;
+}
+
 export interface Trade {
-  messageCount: any;
-  accountId: any;
+  messageCount: number;
+  accountId: string;
   id: string;
   tradeHash?: string;
   platform: string;
   amount: number;
   status: string;
   createdAt: string;
+  updatedAt?: string;
   escalatedBy?: {
     id: string;
     fullName?: string;
@@ -82,7 +87,10 @@ export interface Trade {
   cryptoCurrencyCode?: string;
   fiatCurrency?: string;
   paymentMethod?: string;
+  isLive?: boolean;
 }
+
+const REFRESH_INTERVAL = 10000;
 
 const ExportButtons = ({
   data,
@@ -147,14 +155,8 @@ const formatDate = (date: Date | string) => {
     if (isNaN(dateObj.getTime())) {
       return 'Invalid date';
     }
-
-    // 1) format absolute time as h.mm a  (produces “2.53 pm”)
     const timeString = format(dateObj, 'h.mm a', { locale: enUS });
-
-    // 2) format relative time as “2 mins ago”
     const relative = formatDistanceToNow(dateObj, { addSuffix: true, locale: enUS });
-
-    // 3) combine
     return `${timeString} (${relative})`;
   } catch (err) {
     console.error('Error formatting date:', err);
@@ -162,27 +164,40 @@ const formatDate = (date: Date | string) => {
   }
 };
 
+const areTradesEqual = (prevTrades: Trade[], newTrades: Trade[]): boolean => {
+  if (prevTrades.length !== newTrades.length) return false;
+  return prevTrades.every((trade, index) => {
+    const newTrade = newTrades[index];
+    return (
+      trade.id === newTrade.id &&
+      trade.status === newTrade.status &&
+      trade.hasNewMessages === newTrade.hasNewMessages &&
+      trade.messageCount === newTrade.messageCount &&
+      trade.createdAt === newTrade.createdAt
+    );
+  });
+};
 
 const CustomerSupport: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<LoadingState>({
+    initial: true,
+    refresh: false,
+  });
   const [escalatedTrades, setEscalatedTrades] = useState<Trade[]>([]);
   const [completedTrades, setCompletedTrades] = useState<Trade[]>([]);
   const [allTrades, setAllTrades] = useState<Trade[]>([]);
   const [sortConfig, setSortConfig] = useState<{
     field: string;
-    direction: "asc" | "desc"
-  }>({
-    field: "",
-    direction: "asc"
-  });
+    direction: "asc" | "desc";
+  }>({ field: "", direction: "asc" });
   const [filterAnchor, setFilterAnchor] = useState<null | HTMLElement>(null);
   const [filter, setFilter] = useState<"latest" | "oldest" | "">("");
-  const previousMessageCounts = useRef<Record<string, number>>({});
-  const initialLoad = useRef(true);
+  
   const refreshInterval = useRef<NodeJS.Timeout | null>(null);
-
+  const isMounted = useRef(false);
+  const debouncedRefresh = useRef(debounce(() => fetchData(false), 500)).current;
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
@@ -204,123 +219,126 @@ const CustomerSupport: React.FC = () => {
     }
   };
 
-  const fetchData = async (showLoader = false) => {
-    if (showLoader) setLoading(true);
+  const fetchData = useCallback(async (showLoader = false) => {
     try {
+      if (showLoader) {
+        setLoading(prev => ({ ...prev, refresh: true }));
+      }
 
-      const [esData, compData, allData] = await Promise.all([getEscalatedTrades(), getCompletedTrades({}), getAllTrades()]);
-      if (esData?.success) {
-        setEscalatedTrades(esData.data.map((t: any) => ({
-          id: t.id,
-          tradeHash: t.tradeHash,
-          platform: t.platform,
-          amount: t.amount || 0,
-          status: t.status,
-          createdAt: t.createdAt,
-          ownerUsername: t.ownerUsername,
-          responderUsername: t.responderUsername,
-          reason: t.escalationReason,
-          cryptoCurrencyCode: t.cryptoCurrencyCode,
-          fiatCurrency: t.fiatCurrency,
-          paymentMethod: t.paymentMethod,
-          hasNewMessages: t.hasNewMessages,
-        })));
-      }
-      if (compData?.success) {
-        const arr = Array.isArray(compData.data) ? compData.data : compData.data.trades;
-        setCompletedTrades(arr.map((t: any) => ({
-          id: t.id,
-          tradeHash: t.tradeHash,
-          platform: t.platform,
-          amount: t.amount || 0,
-          status: t.status,
-          createdAt: t.createdAt,
-          ownerUsername: t.owner,
-          responderUsername: t.username,
-          cryptoCurrencyCode: t.cryptoCurrencyCode,
-          fiatCurrency: t.fiatCurrency,
-          paymentMethod: t.paymentMethod,
-          accountId: t.accountId,
-        })));
-      }
-      if (allData?.success) {
-        const arr = Array.isArray(allData.data) ? allData.data : allData.data.trades;
-        const mapped = arr.map((t: any) => ({
-          id: t.id,
-          tradeHash: t.tradeHash,
-          platform: t.platform || 'Unknown',
-          amount: t.amount || 0,
-          status: t.status || 'Unknown',
-          createdAt: t.createdAt,
-          ownerUsername: t.ownerUsername || 'N/A',
-          responderUsername: t.assignedPayer?.fullName || t.responderUsername || 'N/A',
-          cryptoCurrencyCode: t.cryptoCurrencyCode || 'N/A',
-          fiatCurrency: t.fiatCurrency || 'N/A',
-          paymentMethod: t.paymentMethod || 'N/A',
-          accountId: t.accountId || (t.trade && t.trade.accountId) || t.account_id,
-          messageCount: t.messageCount || 0,
-          hasNewMessages: (t.messageCount || 0) > 0,
-          isLive: t.isLive || false,
-        }));
-        setAllTrades(mapped);
-        checkForNewMessages(mapped);
+      const [esData, compData, allData] = await Promise.all([
+        getEscalatedTrades(),
+        getCompletedTrades({}),
+        getAllTrades()
+      ]);
+
+      if (isMounted.current) {
+        if (esData?.success) {
+          const newEscalatedTrades = esData.data.map((t: any) => ({
+            id: t.id,
+            tradeHash: t.tradeHash,
+            platform: t.platform,
+            amount: t.amount || 0,
+            status: t.status,
+            createdAt: t.createdAt,
+            updatedAt: t.updatedAt,
+            ownerUsername: t.ownerUsername,
+            responderUsername: t.responderUsername,
+            reason: t.escalationReason,
+            cryptoCurrencyCode: t.cryptoCurrencyCode,
+            fiatCurrency: t.fiatCurrency,
+            paymentMethod: t.paymentMethod,
+            hasNewMessages: t.hasNewMessages,
+            messageCount: t.messageCount || 0,
+          }));
+
+          setEscalatedTrades(prev => 
+            areTradesEqual(prev, newEscalatedTrades) ? prev : newEscalatedTrades
+          );
+        }
+
+        if (compData?.success) {
+          const arr = Array.isArray(compData.data) ? compData.data : compData.data.trades;
+          const newCompletedTrades = arr.map((t: any) => ({
+            id: t.id,
+            tradeHash: t.tradeHash,
+            platform: t.platform,
+            amount: t.amount || 0,
+            status: t.status,
+            createdAt: t.createdAt,
+            updatedAt: t.updatedAt,
+            ownerUsername: t.owner,
+            responderUsername: t.username,
+            cryptoCurrencyCode: t.cryptoCurrencyCode,
+            fiatCurrency: t.fiatCurrency,
+            paymentMethod: t.paymentMethod,
+            accountId: t.accountId,
+            messageCount: t.messageCount || 0,
+          }));
+          
+          setCompletedTrades(prev => 
+            areTradesEqual(prev, newCompletedTrades) ? prev : newCompletedTrades
+          );
+        }
+
+        if (allData?.success) {
+          const arr = Array.isArray(allData.data) ? allData.data : allData.data.trades;
+          const newAllTrades = arr.map((t: any) => ({
+            id: t.id,
+            tradeHash: t.tradeHash,
+            platform: t.platform || 'Unknown',
+            amount: t.amount || 0,
+            status: t.status || 'Unknown',
+            createdAt: t.createdAt,
+            updatedAt: t.updatedAt,
+            ownerUsername: t.ownerUsername || 'N/A',
+            responderUsername: t.assignedPayer?.fullName || t.responderUsername || 'N/A',
+            cryptoCurrencyCode: t.cryptoCurrencyCode || 'N/A',
+            fiatCurrency: t.fiatCurrency || 'N/A',
+            paymentMethod: t.paymentMethod || 'N/A',
+            accountId: t.accountId || (t.trade && t.trade.accountId) || t.account_id,
+            messageCount: t.messageCount || 0,
+            hasNewMessages: (t.messageCount || 0) > 0,
+            isLive: t.isLive || false,
+          }));
+          
+          setAllTrades(prev => 
+            areTradesEqual(prev, newAllTrades) ? prev : newAllTrades
+          );
+        }
       }
     } catch (err) {
       console.error("Fetch error:", err);
     } finally {
-      if (showLoader) setLoading(false);
+      if (isMounted.current) {
+        setLoading(prev => ({
+          ...prev,
+          initial: false,
+          refresh: false
+        }));
+      }
     }
-  };
-
-  const sendNotification = async (trade: Trade, newCount: number) => {
-    if (!trade.responderUsername || !trade.tradeHash) return;
-    try {
-      await createNotification({
-        userId: trade.responderUsername,
-        title: "New Trade Message",
-        description: `Trade ${trade.tradeHash} has ${newCount} new message${newCount > 1 ? 's' : ''}`,
-        type: "system",
-        priority: "medium",
-        relatedAccountId: trade.accountId,
-      });
-    } catch (err) {
-      console.error("Notification error:", err);
-    }
-  };
-
-
-  const checkForNewMessages = (trades: Trade[]) => {
-    if (initialLoad.current) {
-      initialLoad.current = false;
-      previousMessageCounts.current = trades.reduce((acc, t) => {
-        const key = t.tradeHash || t.id || '';
-        return { ...acc, [key]: t.messageCount || 0 };
-      }, {});
-      return;
-    }
-
-    trades.forEach(t => {
-      const key = t.tradeHash || t.id || '';
-      const prev = previousMessageCounts.current[key] || 0;
-      const curr = t.messageCount || 0;
-      if (curr > prev && t.responderUsername) sendNotification(t, curr - prev);
-    });
-
-    previousMessageCounts.current = trades.reduce((acc, t) => {
-      const key = t.tradeHash || t.id || '';
-      return { ...acc, [key]: t.messageCount || 0 };
-    }, {});
-  };
-
+  }, []);
 
   useEffect(() => {
+    isMounted.current = true;
     fetchData(true);
+    
+    refreshInterval.current = setInterval(() => {
+      debouncedRefresh();
+    }, REFRESH_INTERVAL);
+
     return () => {
+      isMounted.current = false;
       if (refreshInterval.current) {
         clearInterval(refreshInterval.current);
       }
+      debouncedRefresh.cancel();
     };
-  }, []);
+  }, [fetchData, debouncedRefresh]);
+
+  const refreshData = async () => {
+    await fetchData(true);
+  };
 
   const handleFilterClick = (event: React.MouseEvent<HTMLElement>) => {
     setFilterAnchor(event.currentTarget);
@@ -349,7 +367,7 @@ const CustomerSupport: React.FC = () => {
     setSortConfig({ field, direction });
   };
 
-  const filterAndSortData = (data: Trade[]) => {
+  const filterAndSortData = React.useCallback((data: Trade[]) => {
     let filteredData = [...data];
 
     if (searchTerm) {
@@ -360,9 +378,6 @@ const CustomerSupport: React.FC = () => {
           (trade.platform?.toLowerCase().includes(searchLower)) ||
           (trade.amount?.toString().includes(searchTerm)) ||
           (trade.status?.toLowerCase().includes(searchLower)) ||
-          (trade.escalatedBy?.fullName?.toLowerCase().includes(searchLower)) ||
-          (trade.assignedCcAgent?.fullName?.toLowerCase().includes(searchLower)) ||
-          (trade.reason?.toLowerCase().includes(searchLower)) ||
           (trade.responderUsername?.toLowerCase().includes(searchLower)) ||
           (trade.ownerUsername?.toLowerCase().includes(searchLower)) ||
           (trade.cryptoCurrencyCode?.toLowerCase().includes(searchLower)) ||
@@ -412,35 +427,33 @@ const CustomerSupport: React.FC = () => {
     }
 
     return filteredData;
-  };
+  }, [searchTerm, filter, sortConfig]);
 
-  const filteredEscalatedTrades = filterAndSortData(escalatedTrades);
-  const filteredCompletedTrades = filterAndSortData(completedTrades);
-  const filteredAllTrades = filterAndSortData(allTrades);
+  const filteredEscalatedTrades = React.useMemo(
+    () => filterAndSortData(escalatedTrades),
+    [escalatedTrades, filterAndSortData]
+  );
 
-  const refreshData = async () => {
-    setLoading(true);
-    try {
-      await fetchData(true);
-    } catch (err) {
-      console.error("Error refreshing data:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const filteredCompletedTrades = React.useMemo(
+    () => filterAndSortData(completedTrades),
+    [completedTrades, filterAndSortData]
+  );
 
-  const totalRows =
-    escalatedTrades.length +
-    completedTrades.length +
-    allTrades.length;
+  const filteredAllTrades = React.useMemo(
+    () => filterAndSortData(allTrades),
+    [allTrades, filterAndSortData]
+  );
 
-  if (loading && totalRows === 0) {
+  const totalRows = escalatedTrades.length + completedTrades.length + allTrades.length;
+
+  if (loading.initial && totalRows === 0) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
         <CircularProgress />
       </Box>
-    )
+    );
   }
+
 
   return (
     <Box className="min-h-screen">
@@ -563,18 +576,18 @@ const CustomerSupport: React.FC = () => {
           </Menu>
           <Tooltip title="Refresh data">
             <span>
-              <IconButton
-                onClick={refreshData}
-                disabled={loading}
-                sx={{
-                  bgcolor: "background.paper",
-                  border: "1px solid",
-                  borderColor: "divider",
-                  "&:hover": { bgcolor: "action.hover" },
-                }}
-              >
-                {loading ? <CircularProgress size={20} /> : <Refresh fontSize="small" />}
-              </IconButton>
+            <IconButton
+  onClick={refreshData}
+  disabled={loading.refresh} 
+  sx={{
+    bgcolor: "background.paper",
+    border: "1px solid",
+    borderColor: "divider",
+    "&:hover": { bgcolor: "action.hover" },
+  }}
+>
+  {loading.refresh ? <CircularProgress size={20} /> : <Refresh fontSize="small" />}
+</IconButton>
             </span>
           </Tooltip>
         </Box>
