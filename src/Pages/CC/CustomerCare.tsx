@@ -90,7 +90,7 @@ export interface Trade {
   isLive?: boolean;
 }
 
-const REFRESH_INTERVAL = 10000;
+const REFRESH_INTERVAL = 300000;
 
 const ExportButtons = ({
   data,
@@ -149,31 +149,57 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index, ...other })
   );
 };
 
-const formatDate = (date: Date | string) => {
-  try {
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
-    if (isNaN(dateObj.getTime())) {
-      return 'Invalid date';
-    }
-    const timeString = format(dateObj, 'h.mm a', { locale: enUS });
-    const relative = formatDistanceToNow(dateObj, { addSuffix: true, locale: enUS });
-    return `${timeString} (${relative})`;
-  } catch (err) {
-    console.error('Error formatting date:', err);
+const formatDate = (date?: Date | string | null): string => {
+  if (!date) {
+    // nothing passed in
+    return '—';
+  }
+
+  let dateObj: Date;
+  if (typeof date === 'string' || typeof date === 'number') {
+    dateObj = new Date(date);
+  } else if (date instanceof Date) {
+    dateObj = date;
+  } else {
+    return '—';
+  }
+
+  if (isNaN(dateObj.getTime())) {
+    // invalid date
     return 'Invalid date';
   }
+
+  // format time like "2.35 PM"
+  const timeString = format(dateObj, 'h.mm a', { locale: enUS });
+  // format relative like "3 hours ago"
+  const relative = formatDistanceToNow(dateObj, { addSuffix: true, locale: enUS });
+
+  return `${timeString} (${relative})`;
 };
+
 
 const areTradesEqual = (prevTrades: Trade[], newTrades: Trade[]): boolean => {
   if (prevTrades.length !== newTrades.length) return false;
-  return prevTrades.every((trade, index) => {
-    const newTrade = newTrades[index];
+  
+  // Ensure consistent ordering before comparison
+  const sortById = (a: Trade, b: Trade) => (a.id > b.id ? 1 : -1);
+  const sortedPrev = [...prevTrades].sort(sortById);
+  const sortedNew = [...newTrades].sort(sortById);
+  
+  return sortedPrev.every((trade, index) => {
+    const newTrade = sortedNew[index];
+    // Compare all relevant fields that could cause visual changes
     return (
       trade.id === newTrade.id &&
       trade.status === newTrade.status &&
       trade.hasNewMessages === newTrade.hasNewMessages &&
       trade.messageCount === newTrade.messageCount &&
-      trade.createdAt === newTrade.createdAt
+      trade.createdAt === newTrade.createdAt &&
+      trade.updatedAt === newTrade.updatedAt &&
+      trade.amount === newTrade.amount &&
+      trade.platform === newTrade.platform &&
+      trade.ownerUsername === newTrade.ownerUsername &&
+      trade.responderUsername === newTrade.responderUsername
     );
   });
 };
@@ -210,8 +236,8 @@ const CustomerSupport: React.FC = () => {
     const statusLower = status.toLowerCase();
     if (statusLower.includes("escalated")) {
       return { bgcolor: "#FFEDED", color: "#D32F2F" };
-    } else if (statusLower.includes("completed") || statusLower.includes("resolved")) {
-      return { bgcolor: "#EDF7ED", color: "#2E7D32" };
+    } else if (statusLower.includes("completed") || statusLower.includes("resolved") || statusLower.includes("paid")) {
+      return { bgcolor: "#008000", color: "#fff" };
     } else if (statusLower.includes("pending") || statusLower.includes("open")) {
       return { bgcolor: "#FFF4E5", color: "#ED6C02" };
     } else {
@@ -285,13 +311,13 @@ const CustomerSupport: React.FC = () => {
           const newAllTrades = arr.map((t: any) => ({
             id: t.id,
             tradeHash: t.tradeHash,
-            platform: t.platform || 'Unknown',
+            platform: t.platform,
             amount: t.amount || 0,
-            status: t.status || 'Unknown',
+            status: t.status,
             createdAt: t.createdAt,
             updatedAt: t.updatedAt,
-            ownerUsername: t.ownerUsername || 'N/A',
-            responderUsername: t.assignedPayer?.fullName || t.responderUsername || 'N/A',
+            ownerUsername: t.ownerUsername,
+            responderUsername: t.assignedPayer?.fullName || t.responderUsername,
             cryptoCurrencyCode: t.cryptoCurrencyCode || 'N/A',
             fiatCurrency: t.fiatCurrency || 'N/A',
             paymentMethod: t.paymentMethod || 'N/A',
@@ -310,7 +336,7 @@ const CustomerSupport: React.FC = () => {
       console.error("Fetch error:", err);
     } finally {
       if (isMounted.current) {
-        setLoading(prev => ({
+        setLoading(prev => ({ 
           ...prev,
           initial: false,
           refresh: false

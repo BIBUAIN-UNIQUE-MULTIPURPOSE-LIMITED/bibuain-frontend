@@ -97,7 +97,7 @@ const Dashboard: React.FC<{ user: User | null }> = ({ user }) => {
       icon: (
         <Support className="text-[22px] sm:text-[26px] md:text-[28px] w-[22px] sm:w-[26px] md:w-[28px] mr-[10px]" />
       ),
-      allowedUserTypes: ["customer-support", "payer "],
+      allowedUserTypes: ["customer-support"],
     },
     {
       to: "/banks",

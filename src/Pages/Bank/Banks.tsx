@@ -38,7 +38,7 @@ import { getCurrentShift } from "../../api/shift";
 import Loading from "../../Components/Loading";
 import { useNavigate } from "react-router-dom";
 import { useUserContext } from "../../Components/ContextProvider";
-import ClockedAlt from "../../Components/ClockedAlt";
+// import ClockedAlt from "../../Components/ClockedAlt";
 
 enum BankTag {
   FRESH = "fresh",
@@ -174,8 +174,8 @@ const Banks = () => {
   };
 
   if (loading) return <Loading />;
-  if (!user?.clockedIn && user?.userType !== "admin")
-    return <ClockedAlt />;
+  // if (!user?.clockedIn && user?.userType !== "admin")
+  //   return <ClockedAlt />;
 
   return (
     <div className="space-y-6 min-h-screen font-primary">

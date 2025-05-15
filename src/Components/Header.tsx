@@ -13,7 +13,7 @@ import {
   Coffee,
 } from "lucide-react";
 import { useUserContext } from "./ContextProvider";
-import { logout } from "../api/user";
+import { createNotification, getAllUsers, logout } from "../api/user";
 import { Avatar } from "@mui/material";
 import { Person } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
@@ -363,12 +363,61 @@ const Header = () => {
     }
   };
 
+  const handleIncorrect = async () => {
+    let ratersToNotify: string[] = [];
+  
+    const assigned = currentShift?.shift?.user;
+    if (assigned && assigned.userType === "rater") {
+      ratersToNotify.push(assigned.id);
+    }
+    if (ratersToNotify.length === 0) {
+      try {
+        const allRaters = await getAllUsers({ userType: "rater" });
+        ratersToNotify = allRaters
+          .filter((r: any) => r && r.clockedIn)
+          .map((r: any) => r.id);
+      } catch (err) {
+        console.error("Failed to load raters:", err);
+        toast.error("Could not fetch raters");
+        return;
+      }
+    }
+  
+    if (ratersToNotify.length === 0) {
+      toast.error("No rater available right now");
+      return;
+    }
+  
+    await Promise.all(
+      ratersToNotify.map(async (raterId) => {
+        try {
+          await createNotification({
+            userId:           raterId,
+            title:            "Bank amount mismatch",
+            description:      `Payer ${user?.fullName} reports wrong balance of ${selectedBank.funds} on "${selectedBank?.bankName} ${selectedBank.accountName}".`,
+            type:             "individual",
+            priority:         "high",
+            relatedAccountId: null
+          });
+          console.log(`✅ Notification sent to rater ${raterId}`);
+          setShowBankModal(false);
+        } catch (err) {
+          console.error(`❌ Failed notifying rater ${raterId}:`, err);
+        }
+      })
+    );
+  
+    toast.success("Rater(s) notified");
+  };
+  
+
+
   useEffect(() => {
     const interval = setInterval(() => {
       if (user?.clockedIn) {
         fetchCurrentShift();
       }
-    }, 20000);
+    }, 30000);
 
     return () => clearInterval(interval);
   }, [user?.clockedIn]);
@@ -419,7 +468,7 @@ const Header = () => {
             {selectedBank && isClockedIn && (
               <div className="flex items-center gap-2">
                 <span className="font-medium">
-                  Bank: {selectedBank.bankName}
+                  Bank: {selectedBank.bankName} - {selectedBank.accountName}
                 </span>
                 <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md font-semibold">
                   &#8358;{Number(bankAmount).toLocaleString()}
@@ -551,7 +600,7 @@ const Header = () => {
                         }}
                       />
                       <span className="ml-2">
-                        {bank.bankName} - {bank.accountNumber} (₦{bank.funds.toLocaleString()})
+                        {bank.bankName} - {bank.accountName} (₦{bank.funds.toLocaleString()})
                       </span>
                     </label>
                   </li>
@@ -560,8 +609,14 @@ const Header = () => {
               <h3 className="py-2 rounded text-red-500"><span className="px-4 py-2 rounded text-black">Note: </span> If the amount displayed is not equal to the amount you have at hand, please notify your Rater to update amount for this bank </h3>
               <div className="flex justify-end gap-2">
                 <button
+                  onClick={handleIncorrect}
+                  className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-200 transition-colors"
+                >
+                  Incorrect
+                </button>
+                <button
                   onClick={() => setShowBankModal(false)}
-                  className="py-2 rounded bg-gray-200"
+                  className="p-3 rounded bg-gray-200"
                 >
                   Cancel
                 </button>
@@ -602,13 +657,19 @@ const Header = () => {
                       </label>
                     </li>
                   ))}
-                  <h3 className="py-2 rounded text-red-500"><span className="px-4 py-2 rounded text-black">Note: </span> If the amount displayed is not equal to the amount you have at hand, please notify your Rater to update amount for this bank </h3>
+                  <h3 className="py-2 rounded text-red-500"><span className="px-4 py-2 rounded text-black">Note: </span> If the amount displayed is not equal to the amount you are closing with, please notify your Rater to update amount for this bank </h3>
                 </ul>
               ) : (
                 <p className="text-gray-500 mb-4">No banks found for this shift.</p>
               )}
               <div className="flex justify-end gap-2">
-                <button onClick={() => setShowCloseModal(false)} className="px-4 py-2 rounded bg-gray-200">
+              <button
+                  onClick={handleIncorrect}
+                  className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-200 transition-colors"
+                >
+                  Incorrect
+                </button>
+                <button onClick={() => setShowCloseModal(false)} className="px-4 p2 rounded bg-gray-200">
                   Cancel
                 </button>
                 <button
