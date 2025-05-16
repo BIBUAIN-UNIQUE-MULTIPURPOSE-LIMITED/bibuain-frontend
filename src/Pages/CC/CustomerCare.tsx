@@ -90,7 +90,7 @@ export interface Trade {
   isLive?: boolean;
 }
 
-const REFRESH_INTERVAL = 300000;
+const REFRESH_INTERVAL = 30000;
 
 const ExportButtons = ({
   data,
@@ -346,21 +346,25 @@ const CustomerSupport: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    isMounted.current = true;
-    fetchData(true);
-    
-    refreshInterval.current = setInterval(() => {
-      debouncedRefresh();
-    }, REFRESH_INTERVAL);
-
+    // on mount or tabValue change, clear any existing timer
+    if (refreshInterval.current) {
+      clearInterval(refreshInterval.current);
+    }
+  
+    // only start the auto‑refresh loop if we're *not* on tab 0 (Escalated)
+    if (tabValue !== 0) {
+      refreshInterval.current = setInterval(() => {
+        debouncedRefresh();
+      }, REFRESH_INTERVAL);
+    }
+  
+    // cleanup on unmount
     return () => {
-      isMounted.current = false;
       if (refreshInterval.current) {
         clearInterval(refreshInterval.current);
       }
-      debouncedRefresh.cancel();
     };
-  }, [fetchData, debouncedRefresh]);
+  }, [tabValue, debouncedRefresh]);
 
   const refreshData = async () => {
     await fetchData(true);

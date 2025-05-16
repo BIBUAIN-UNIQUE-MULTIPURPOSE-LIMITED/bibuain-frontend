@@ -584,7 +584,7 @@ const Header = () => {
         {/* Bank selection modal */}
         {showBankModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg w-96">
+            <div className="bg-white p-16 rounded-lg">
               <h2 className="text-xl font-semibold mb-4">Select Bank for Today</h2>
               <ul className="max-h-64 overflow-y-auto mb-4">
                 {banks.map((bank) => (
@@ -635,7 +635,7 @@ const Header = () => {
         {/* Closing balances modal */}
         {showCloseModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg w-96">
+            <div className="bg-white p-6 rounded-lg">
               <h2 className="text-xl font-semibold mb-4">Confirm Closing Balances</h2>
               {shiftBanks.length > 0 ? (
                 <ul className="max-h-64 overflow-y-auto mb-4">
@@ -674,7 +674,7 @@ const Header = () => {
                 </button>
                 <button
                   onClick={confirmCloseAndClockOut}
-                  className="px-4 py-2 rounded bg-red-600 text-white disabled:opacity-50"
+                  className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
                 >
                   Confirm & Clock Out
                 </button>

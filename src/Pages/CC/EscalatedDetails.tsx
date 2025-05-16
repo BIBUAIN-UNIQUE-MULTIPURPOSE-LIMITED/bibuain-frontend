@@ -90,6 +90,7 @@ const EscalatedDetails: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const theme = useTheme();
+  const [reassigning, setReassigning] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef?.current?.scrollIntoView({ behavior: "smooth" });
@@ -224,17 +225,15 @@ const EscalatedDetails: React.FC = () => {
       toast.error("Missing required data", errorStyles);
       return;
     }
-
+  
+    setReassigning(true); // start loading
+  
     try {
-      console.log("Reassigning trade:", {
-        tradeId: escalatedTrade.id,
-      });
-
       const response = await reAssignTrade(escalatedTrade.id);
-
+  
       if (response?.success) {
         toast.success("Trade reassigned successfully", successStyles);
-        fetchTradeDetails();
+        await fetchTradeDetails();
       } else {
         toast.error(response?.message || "Failed to reassign trade", errorStyles);
       }
@@ -244,9 +243,10 @@ const EscalatedDetails: React.FC = () => {
         error.response?.data?.message || "Failed to reassign trade",
         errorStyles
       );
+    } finally {
+      setReassigning(false); // end loading
     }
   };
-
 
   const handleSendMessage = async () => {
     // 1) guard on having a trade ID & nonempty text
@@ -425,13 +425,15 @@ const EscalatedDetails: React.FC = () => {
             </Typography>
 
             <Button
-              variant="contained"
-              fullWidth
-              sx={{ mt: 2 }}
-              onClick={handleReAssign}
-            >
-              Reassign Trade
-            </Button>
+  variant="contained"
+  fullWidth
+  sx={{ mt: 2 }}
+  onClick={handleReAssign}
+  disabled={reassigning}
+  startIcon={reassigning ? <CircularProgress size={20} color="inherit" /> : null}
+>
+  {reassigning ? "Reassigning..." : "Reassign Trade"}
+</Button>
 
 
             <Box sx={{ mb: 2, mt: 2 }}>

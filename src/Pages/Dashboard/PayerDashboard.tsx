@@ -136,6 +136,7 @@ const PayerDashboard = () => {
       if (isInitial) setInitialLoading(true);
 
       const tradeData = await getPayerTrade(user?.id);
+      console.log('Trade data from API:', tradeData);
 
       // No trade assigned
       if (!tradeData?.success) {
