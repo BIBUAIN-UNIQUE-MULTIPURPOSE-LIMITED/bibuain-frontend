@@ -642,7 +642,7 @@ const Header = () => {
                   {shiftBanks.map((bank) => (
                     <li key={bank.id} className="mb-2">
                       <label className="flex flex-col">
-                        <span className="font-medium">{bank.bankName}</span>
+                        <span className="font-medium">{bank.bankName} - {bank.accountName}</span>
                         <input
                           type="number"
                           className="border rounded p-2 mt-1"
