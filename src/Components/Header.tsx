@@ -466,15 +466,23 @@ const Header = () => {
             {error && <div className="text-red-500">{error}</div>}
 
             {selectedBank && isClockedIn && (
-              <div className="flex items-center gap-2">
-                <span className="font-medium">
-                  Bank: {selectedBank.bankName} - {selectedBank.accountName}
-                </span>
-                <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md font-semibold">
-                  &#8358;{Number(bankAmount).toLocaleString()}
-                </span>
-              </div>
-            )}
+  <div className="flex items-center gap-2">
+    <span className="font-medium">
+      Bank: {selectedBank.bankName} - {selectedBank.accountName}
+    </span>
+    {bankAmount > 0 && (
+      <span className={`px-2 py-1 rounded-md font-semibold ${
+        bankAmount >= 5000000 
+          ? 'bg-green-700 text-white' 
+          : bankAmount >= 1000000 
+            ? 'bg-orange-500 text-white' 
+            : 'bg-red-600 text-white'
+      }`}>
+        ₦{Number(bankAmount).toLocaleString()}
+      </span>
+    )}
+  </div>
+)}
             {user?.userType === "payer" && isClockedIn && bankAmount === 0 && (
               <button
                 onClick={openBankSelection}
