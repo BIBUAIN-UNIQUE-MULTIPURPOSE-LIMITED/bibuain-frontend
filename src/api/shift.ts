@@ -1,4 +1,3 @@
-// shiftApi.ts
 import { api, handleApiError } from "./user";
 import toast from "react-hot-toast";
 import { loadingStyles, successStyles } from "../lib/constants";
