@@ -136,15 +136,6 @@ export const markTradeAsPaid = async (
   }
 };
 
-export const getDashboardStats = async () => {
-  try {
-    const res: ResInterface = await api.get("/trade/dashboard");
-    return res;
-  } catch (error) {
-    handleApiError(error);
-  }
-};
-
 export const getFeedbackStats = async (params: { username: string; platform: string }) => {
   try {
     const res: ResInterface = await api.get("/trade/feedback-stats", { params });
@@ -340,6 +331,24 @@ export const getEscalatedTrades = async () => {
   }
 };
 
+export const getDashboardStats = async () => {
+  try {
+    const res: ResInterface = await api.get("/trade/dashboard");
+    return res;
+  } catch (error) {
+    handleApiError(error);
+  }
+};
+
+export const getCCstats = async () => {
+  try {
+    const res: ResInterface = await api.get("/trade/ccstat");
+    return res;
+  } catch (error) {
+    handleApiError(error);
+  }
+};
+
 export const getEscalatedTradeById = async (id: string) => {
   try {
     const res: ResInterface = await api.get(`/trade/escalated-trades/${id}`);
@@ -374,15 +383,6 @@ export const activateDeactivatedOffers = async () => {
     return res;
   } catch (error) {
     console.error("Error in activateDeactivatedOffers:", error);
-    handleApiError(error);
-  }
-};
-
-export const getCCstats = async () => {
-  try {
-    const res: ResInterface = await api.get("/trade/ccstat");
-    return res;
-  } catch (error) {
     handleApiError(error);
   }
 };

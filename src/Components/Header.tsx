@@ -13,7 +13,7 @@ import {
   Coffee,
 } from "lucide-react";
 import { useUserContext } from "./ContextProvider";
-import { logout } from "../api/user";
+import { createNotification, getAllUsers, logout } from "../api/user";
 import { Avatar } from "@mui/material";
 import { Person } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
@@ -363,52 +363,100 @@ const Header = () => {
     }
   };
 
+  const handleIncorrect = async () => {
+    let ratersToNotify: string[] = [];
+  
+    const assigned = currentShift?.shift?.user;
+    if (assigned && assigned.userType === "rater") {
+      ratersToNotify.push(assigned.id);
+    }
+    if (ratersToNotify.length === 0) {
+      try {
+        const allRaters = await getAllUsers({ userType: "rater" });
+        ratersToNotify = allRaters
+          .filter((r: any) => r && r.clockedIn)
+          .map((r: any) => r.id);
+      } catch (err) {
+        console.error("Failed to load raters:", err);
+        toast.error("Could not fetch raters");
+        return;
+      }
+    }
+  
+    if (ratersToNotify.length === 0) {
+      toast.error("No rater available right now");
+      return;
+    }
+  
+    await Promise.all(
+      ratersToNotify.map(async (raterId) => {
+        try {
+          await createNotification({
+            userId:           raterId,
+            title:            "Bank amount mismatch",
+            description:      `Payer ${user?.fullName} reports wrong balance of ${selectedBank.funds} on "${selectedBank?.bankName} ${selectedBank.accountName}".`,
+            type:             "individual",
+            priority:         "high",
+            relatedAccountId: null
+          });
+          console.log(`✅ Notification sent to rater ${raterId}`);
+          setShowBankModal(false);
+        } catch (err) {
+          console.error(`❌ Failed notifying rater ${raterId}:`, err);
+        }
+      })
+    );
+  
+    toast.success("Rater(s) notified");
+  };
+  
+
+
   useEffect(() => {
     const interval = setInterval(() => {
       if (user?.clockedIn) {
         fetchCurrentShift();
       }
-    }, 20000);
+    }, 30000);
 
     return () => clearInterval(interval);
   }, [user?.clockedIn]);
 
   const handleReassignBank = async () => {
     if (!selectedBank || !currentShift?.shift?.id) return;
-  
+
     try {
       toast.loading("Updating bank...");
       const res = await spendBank(selectedBank.id, {
         amountUsed: 0,
         shiftId: currentShift.shift.id,
       });
-      
+
       toast.dismiss();
-      
-      if (res?.success) { // Now checking the correct response structure
+
+      if (res?.success) {
         const updatedBank = res.data;
         toast.success("Bank reassigned successfully");
-  
-        // update to the *new* bank immediately
+
         setSelectedBank({
-          id:            updatedBank.id,
-          bankName:      updatedBank.bankName,
+          id: updatedBank.id,
+          bankName: updatedBank.bankName,
           accountNumber: updatedBank.accountNumber,
-          funds:         updatedBank.funds,
+          funds: updatedBank.funds,
         });
         setBankAmount(updatedBank.funds);
-  
+
         // re‑sync the rest of the shift
         await fetchCurrentShift();
         setShowBankModal(false);
-      } 
+      }
     } catch (error) {
       toast.dismiss();
       console.error("Error reassigning bank:", error);
       toast.error("Bank reassignment failed");
     }
   };
-  
+
 
   return (
     <header className="w-full border-b bg-white shadow-sm">
@@ -418,23 +466,31 @@ const Header = () => {
             {error && <div className="text-red-500">{error}</div>}
 
             {selectedBank && isClockedIn && (
-              <div className="flex items-center gap-2">
-                <span className="font-medium">
-                  Bank: {selectedBank.bankName}
-                </span>
-                <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md font-semibold">
-                  &#8358;{Number(bankAmount).toLocaleString()}
-                </span>
-              </div>
-            )}
-            {user?.userType === "payer" && isClockedIn && bankAmount === 0 && (
-  <button
-    onClick={openBankSelection}
-    className="px-4 py-2 rounded-md bg-yellow-100 text-yellow-700 hover:bg-yellow-200 transition-colors"
-  >
-    Request New Bank
-  </button>
+  <div className="flex items-center gap-2">
+    <span className="font-medium">
+      Bank: {selectedBank.bankName} - {selectedBank.accountName}
+    </span>
+    {bankAmount > 0 && (
+      <span className={`px-2 py-1 rounded-md font-semibold ${
+        bankAmount >= 5000000 
+          ? 'bg-green-700 text-white' 
+          : bankAmount >= 1000000 
+            ? 'bg-orange-500 text-white' 
+            : 'bg-red-600 text-white'
+      }`}>
+        ₦{Number(bankAmount).toLocaleString()}
+      </span>
+    )}
+  </div>
 )}
+            {user?.userType === "payer" && isClockedIn && bankAmount === 0 && (
+              <button
+                onClick={openBankSelection}
+                className="px-4 py-2 rounded-md bg-yellow-100 text-yellow-700 hover:bg-yellow-200 transition-colors"
+              >
+                Request New Bank
+              </button>
+            )}
 
 
 
@@ -450,8 +506,8 @@ const Header = () => {
             <button
               onClick={handleClockInOut}
               className={`px-4 py-2 rounded-md font-medium transition-colors ${isClockedIn
-                  ? "bg-red-100 text-red-600 hover:bg-red-200"
-                  : "bg-green-100 text-green-600 hover:bg-green-200"
+                ? "bg-red-100 text-red-600 hover:bg-red-200"
+                : "bg-green-100 text-green-600 hover:bg-green-200"
                 }`}
             >
               <div className="flex items-center gap-2">
@@ -468,8 +524,8 @@ const Header = () => {
               onClick={handleBreak}
               disabled={!isClockedIn}
               className={`px-4 py-2 rounded-md font-medium transition-colors ${isOnBreak
-                  ? "bg-yellow-100 text-yellow-600 hover:bg-yellow-200"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                ? "bg-yellow-100 text-yellow-600 hover:bg-yellow-200"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 } ${!isClockedIn && "opacity-50 cursor-not-allowed"}`}
             >
               <div className="flex items-center gap-2">
@@ -535,59 +591,66 @@ const Header = () => {
 
         {/* Bank selection modal */}
         {showBankModal && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-white p-6 rounded-lg w-96">
-      <h2 className="text-xl font-semibold mb-4">Select Bank for Today</h2>
-      <ul className="max-h-64 overflow-y-auto mb-4">
-        {banks.map((bank) => (
-          <li key={bank.id} className="mb-2">
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="bank"
-                checked={selectedBank?.id === bank.id}
-                onChange={() => {
-                  setSelectedBank(bank);
-                  setBankAmount(bank.funds);
-                }}
-              />
-              <span className="ml-2">
-                {bank.bankName} - {bank.accountNumber} (₦{bank.funds.toLocaleString()})
-              </span>
-            </label>
-          </li>
-        ))}
-      </ul>
-      <div className="flex justify-end gap-2">
-        <button 
-          onClick={() => setShowBankModal(false)} 
-          className="px-4 py-2 rounded bg-gray-200"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={isClockedIn ? handleReassignBank : confirmBankAndClockIn}
-          disabled={!selectedBank}
-          className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
-        >
-          {isClockedIn ? "Update Bank" : "Confirm & Clock In"}
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white p-16 rounded-lg">
+              <h2 className="text-xl font-semibold mb-4">Select Bank for Today</h2>
+              <ul className="max-h-64 overflow-y-auto mb-4">
+                {banks.map((bank) => (
+                  <li key={bank.id} className="mb-2">
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="bank"
+                        checked={selectedBank?.id === bank.id}
+                        onChange={() => {
+                          setSelectedBank(bank);
+                          setBankAmount(bank.funds);
+                        }}
+                      />
+                      <span className="ml-2">
+                        {bank.bankName} - {bank.accountName} (₦{bank.funds.toLocaleString()})
+                      </span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+              <h3 className="py-2 rounded text-red-500"><span className="px-4 py-2 rounded text-black">Note: </span> If the amount displayed is not equal to the amount you have at hand, please notify your Rater to update amount for this bank </h3>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={handleIncorrect}
+                  className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-200 transition-colors"
+                >
+                  Incorrect
+                </button>
+                <button
+                  onClick={() => setShowBankModal(false)}
+                  className="p-3 rounded bg-gray-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={isClockedIn ? handleReassignBank : confirmBankAndClockIn}
+                  disabled={!selectedBank}
+                  className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
+                >
+                  {isClockedIn ? "Update Bank" : "Confirm & Clock In"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Closing balances modal */}
         {showCloseModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg w-96">
+            <div className="bg-white p-6 rounded-lg">
               <h2 className="text-xl font-semibold mb-4">Confirm Closing Balances</h2>
               {shiftBanks.length > 0 ? (
                 <ul className="max-h-64 overflow-y-auto mb-4">
                   {shiftBanks.map((bank) => (
                     <li key={bank.id} className="mb-2">
                       <label className="flex flex-col">
-                        <span className="font-medium">{bank.bankName}</span>
+                        <span className="font-medium">{bank.bankName} - {bank.accountName}</span>
                         <input
                           type="number"
                           className="border rounded p-2 mt-1"
@@ -602,17 +665,24 @@ const Header = () => {
                       </label>
                     </li>
                   ))}
+                  <h3 className="py-2 rounded text-red-500"><span className="px-4 py-2 rounded text-black">Note: </span> If the amount displayed is not equal to the amount you are closing with, please notify your Rater to update amount for this bank </h3>
                 </ul>
               ) : (
                 <p className="text-gray-500 mb-4">No banks found for this shift.</p>
               )}
               <div className="flex justify-end gap-2">
-                <button onClick={() => setShowCloseModal(false)} className="px-4 py-2 rounded bg-gray-200">
+              <button
+                  onClick={handleIncorrect}
+                  className="px-4 py-2 rounded bg-red-600 text-white hover:bg-red-200 transition-colors"
+                >
+                  Incorrect
+                </button>
+                <button onClick={() => setShowCloseModal(false)} className="px-4 p2 rounded bg-gray-200">
                   Cancel
                 </button>
                 <button
                   onClick={confirmCloseAndClockOut}
-                  className="px-4 py-2 rounded bg-red-600 text-white disabled:opacity-50"
+                  className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
                 >
                   Confirm & Clock Out
                 </button>
