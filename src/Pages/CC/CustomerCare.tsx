@@ -346,6 +346,18 @@ const CustomerSupport: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    isMounted.current = true;
+    fetchData(true);
+    
+    return () => {
+      isMounted.current = false;
+      if (refreshInterval.current) {
+        clearInterval(refreshInterval.current);
+      }
+    };
+  }, [fetchData]);
+
+  useEffect(() => {
     // on mount or tabValue change, clear any existing timer
     if (refreshInterval.current) {
       clearInterval(refreshInterval.current);

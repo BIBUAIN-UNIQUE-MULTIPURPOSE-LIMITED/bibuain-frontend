@@ -33,6 +33,7 @@ import {
   getFundedBanks,
   getRolloverBanks,
   useBank as spendBank,
+  getUsedBanks
 } from "../../api/bank";
 import { getCurrentShift } from "../../api/shift";
 import Loading from "../../Components/Loading";
@@ -87,11 +88,13 @@ const Banks = () => {
   const tabOptions: { label: string; value: TabOption }[] =
     user?.userType === "payer"
       ? [
-          { label: "Funded Banks", value: "funded" }
+          { label: "Funded Banks", value: "funded" },
+          { label: "Used", value: "used" }
         ]
       : [
           { label: "All Banks", value: "all" },
           { label: "Funded Banks", value: "funded" },
+          { label: "Used", value: "used" },
           { label: "Unfunded", value: "free" },
           { label: "Rollover Banks", value: "rollover" },
         ];
@@ -137,6 +140,9 @@ const Banks = () => {
           break;
         case "free":
           res = await getFreeBanks();
+          break;
+        case "used":
+          res = await getUsedBanks();
           break;
         case "rollover":
           res = await getRolloverBanks();
