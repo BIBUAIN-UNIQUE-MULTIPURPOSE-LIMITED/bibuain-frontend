@@ -18,6 +18,7 @@ interface CostPriceResponse {
 
 export interface ApiResponse<T = any> {
   success: boolean;
+  failure?: boolean;
   message: string;
   data?: T;
 }

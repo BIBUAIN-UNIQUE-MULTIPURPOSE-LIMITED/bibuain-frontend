@@ -154,43 +154,42 @@ const EscalatedDetails: React.FC = () => {
     fetchTradeDetails();
   }, [tradeId]);
 
+  // const handleCancelTrade = async () => {
+  //   setCancelTradeState(true);
+  //   try {
+  //     if (!tradeId) {
+  //       toast.error("Trade ID is missing", errorStyles);
+  //       return;
+  //     }
 
-  const handleCancelTrade = async () => {
-    setCancelTradeState(true);
-    try {
-      if (!tradeId) {
-        toast.error("Trade ID is missing", errorStyles);
-        return;
-      }
+  //     const res = await cancelTradeRequest(tradeId);
+  //     console.log("Cancel trade response:", res);
 
-      const res = await cancelTradeRequest(tradeId);
-      console.log("Cancel trade response:", res);
+  //     if (res) {
+  //       toast.success("Trade cancelled successfully", successStyles);
 
-      if (res) {
-        toast.success("Trade cancelled successfully", successStyles);
+  //       // Update local state to reflect the cancelled status
+  //       setEscalatedTrade((prev: any) => ({
+  //         ...prev,
+  //         status: 'cancelled'
+  //       }));
 
-        // Update local state to reflect the cancelled status
-        setEscalatedTrade((prev: any) => ({
-          ...prev,
-          status: 'cancelled'
-        }));
-
-        // Navigate back to the list after a short delay
-        setTimeout(() => {
-          navigate("/customer-support");
-        }, 2000);
-      } else {
-        setTimeout(() => {
-          navigate("/customer-support");
-        }, 2000);
-      }
-    } catch (error) {
-      console.error("Error cancelling trade:", error);
-      toast.error("An error occurred while cancelling the trade", errorStyles);
-    } finally {
-      setCancelTradeState(false);
-    }
-  };
+  //       // Navigate back to the list after a short delay
+  //       setTimeout(() => {
+  //         navigate("/customer-support");
+  //       }, 2000);
+  //     } else {
+  //       setTimeout(() => {
+  //         navigate("/customer-support");
+  //       }, 2000);
+  //     }
+  //   } catch (error) {
+  //     console.error("Error cancelling trade:", error);
+  //     toast.error("An error occurred while cancelling the trade", errorStyles);
+  //   } finally {
+  //     setCancelTradeState(false);
+  //   }
+  // };
 
 
   const formatWATDateTime = (date: Date | string) => {
@@ -511,7 +510,7 @@ const EscalatedDetails: React.FC = () => {
 
 
 
-            <Button
+            {/* <Button
               variant="contained"
               fullWidth
               sx={{ mt: 2 }}
@@ -519,7 +518,7 @@ const EscalatedDetails: React.FC = () => {
               disabled={cancelTradeState}
             >
               {cancelTradeState ? "Cancelling..." : "Cancel Trade"}
-            </Button>
+            </Button> */}
 
           </Paper>
 
@@ -823,7 +822,9 @@ const EscalatedDetails: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-      <Dialog
+
+
+      {/* <Dialog
         open={confirmCancelOpen}
         onClose={() => setConfirmCancelOpen(false)}
       >
@@ -848,7 +849,9 @@ const EscalatedDetails: React.FC = () => {
             Yes
           </Button>
         </DialogActions>
-      </Dialog>
+      </Dialog> */}
+
+
     </Box>
   );
 };

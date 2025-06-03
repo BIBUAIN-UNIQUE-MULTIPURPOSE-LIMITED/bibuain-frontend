@@ -38,7 +38,7 @@ import {
 import { format } from "date-fns";
 import EscalateTrade from "../Payer/EscalateTrade";
 import { useUserContext } from "../../Components/ContextProvider";
-import { ITrade, Message, Attachment } from "../../lib/interface";
+import { ITrade, Message, Attachment, TradeStatus } from "../../lib/interface";
 import { getPayerTrade, getTradeDetails, markTradeAsPaid, getPlatformCostPrice } from "../../api/trade";
 import toast from "react-hot-toast";
 import { successStyles, SOCKET_BASE_URL } from "../../lib/constants";
@@ -46,7 +46,6 @@ import { CreditCardIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getCurrentShift } from "../../api/shift";
 import { io, Socket } from "socket.io-client";
-import isEqual from "lodash/isEqual";
 
 
 // Styled components
@@ -130,108 +129,74 @@ const PayerDashboard = () => {
     paymentInfo?.buyer_name
   ]);
 
-
   const fetchTradeData = async (isInitial = false) => {
     try {
       if (isInitial) setInitialLoading(true);
-
+  
       const tradeData = await getPayerTrade(user?.id);
       console.log('Trade data from API:', tradeData);
-
-      // No trade assigned
-      if (!tradeData?.success) {
-        if (isInitial) {
+  
+      const newTrade = tradeData?.data;
+  
+      // Determine if the *current* trade should be cleared
+      const isCurrentTradeTerminal = assignedTrade && ["escalated", "paid", "completed", "successful", "cancelled", "expired", "disputed"]
+        .includes(assignedTrade.status?.toLowerCase());
+  
+      // Scenario 1: No trade returned from API OR current trade is terminal
+      if (!newTrade || isCurrentTradeTerminal) {
+        if (assignedTrade?.id) { // Only clear local storage if a trade was previously assigned
+          localStorage.removeItem(`elapsed_start_${assignedTrade.id}`);
+        }
+        // Only set to null if there was an assigned trade before or if it's the initial load and no trade is found
+        if (assignedTrade !== null || isInitial) {
           setAssignedTrade(null);
           setPaymentInfo({});
           setMessages([]);
         }
-        return;
+        return; // Exit early if no new trade or current is terminal
       }
-
-      const newTrade = tradeData.data;
-
-      // Check if trade status is terminal - must be first
-      const terminalStatuses = ["escalated", "paid", "completed", "successful", "cancelled", "expired"];
-      if (terminalStatuses.includes(newTrade.status?.toLowerCase())) {
-        // console.log(`Trade in terminal state: ${newTrade.status}`);
-        setAssignedTrade(null);
-        setPaymentInfo({});
-        setMessages([]);
-        return;
-      }
-
-      // Only update if trade actually changed
-      setAssignedTrade(prevTrade => {
-        if (!prevTrade) return newTrade;
-
-        // Check if important fields changed
-        if (prevTrade.id !== newTrade.id ||
-          prevTrade.status !== newTrade.status ||
-          !isEqual(prevTrade.platformMetadata, newTrade.platformMetadata)) {
-          return newTrade;
+  
+      // Scenario 2: New trade available
+      // Only update if trade actually changed or if this is the initial load, or if no trade was assigned before
+      if (isInitial || !assignedTrade || assignedTrade.id !== newTrade.id || assignedTrade.status !== newTrade.status) {
+        // Clear elapsed time for the *previous* trade if the ID changes
+        if (assignedTrade && assignedTrade.id !== newTrade.id) {
+          localStorage.removeItem(`elapsed_start_${assignedTrade.id}`);
         }
-
-        return prevTrade;
-      });
-
-      try {
-        const detailsResponse = await getTradeDetails(
-          newTrade.platform,
-          newTrade.tradeHash,
-          newTrade.accountId
-        );
-
-        if (detailsResponse?.data) {
-          const { externalTrade, tradeChat } = detailsResponse.data;
-
-          // 1) pull raw messages & attachments
-          const msgs = Array.isArray(tradeChat?.messages) ? tradeChat.messages : [];
-          const atts = Array.isArray(tradeChat?.attachments) ? tradeChat.attachments : [];
-
-          // 2) find first message carrying bank_account payload
-          const bankMsg = msgs.find(
-            (m: { content: any; }) => m.content && typeof m.content === "object" && (m.content as any).bank_account
+        setAssignedTrade(newTrade);
+  
+        // Fetch detailed trade information for the new/updated trade
+        try {
+          const detailsResponse = await getTradeDetails(
+            newTrade.platform,
+            newTrade.tradeHash,
+            newTrade.accountId
           );
-          const ba = bankMsg ? (bankMsg.content as any).bank_account : {};
-
-          // 3) merge chat‑derived bank info with existing externalTrade data
-          setPaymentInfo(prevInfo => {
-            const updatedInfo = {
-              ...prevInfo,
+  
+          if (detailsResponse?.data) {
+            const { externalTrade, tradeChat } = detailsResponse.data;
+  
+            const msgs = Array.isArray(tradeChat?.messages) ? tradeChat.messages : [];
+            const atts = Array.isArray(tradeChat?.attachments) ? tradeChat.attachments : [];
+  
+            const bankMsg = msgs.find(
+              (m: { content: any; }) => m.content && typeof m.content === "object" && (m.content as any).bank_account
+            );
+            const ba = bankMsg ? (bankMsg.content as any).bank_account : {};
+  
+            setPaymentInfo({
               ...externalTrade,
-              bankName: ba.bank_name || externalTrade?.bankName || prevInfo?.bankName,
-              accountNumber: ba.account_number || externalTrade?.accountNumber || prevInfo?.accountNumber,
-              accountHolder: ba.holder_name || externalTrade?.accountHolder || prevInfo?.accountHolder,
-            };
-
-            // Only update if something actually changed to prevent re-renders
-            if (JSON.stringify(updatedInfo) !== JSON.stringify(prevInfo)) {
-              return updatedInfo;
-            }
-            return prevInfo;
-          });
-
-          // 4) now set messages & attachments
-          setMessages(prevMsgs => {
-            if (JSON.stringify(msgs) !== JSON.stringify(prevMsgs)) {
-              return msgs;
-            }
-            return prevMsgs;
-          });
-
-          setAttachments(prevAtts => {
-            if (JSON.stringify(atts) !== JSON.stringify(prevAtts)) {
-              return atts;
-            }
-            return prevAtts;
-          });
-
-          // 5) preserve buyer_name into platformMetadata if present
-          if (externalTrade?.buyer_name) {
-            setAssignedTrade((prev) => {
-              if (!prev) return null;
-              // Only update if the value changed
-              if (prev.platformMetadata?.accountUsername !== externalTrade.buyer_name) {
+              bankName: ba.bank_name || externalTrade?.bankName,
+              accountNumber: ba.account_number || externalTrade?.accountNumber,
+              accountHolder: ba.holder_name || externalTrade?.accountHolder,
+            });
+  
+            setMessages(msgs);
+            setAttachments(atts);
+  
+            if (externalTrade?.buyer_name) {
+              setAssignedTrade((prev) => {
+                if (!prev) return null;
                 return {
                   ...prev,
                   platformMetadata: {
@@ -239,22 +204,27 @@ const PayerDashboard = () => {
                     accountUsername: externalTrade.buyer_name,
                   },
                 };
-              }
-              return prev;
-            });
+              });
+            }
           }
+        } catch (error) {
+          console.error("Error fetching trade details:", error);
+          // Do not clear the trade here; keep the main trade data if details fail
         }
-      } catch (error) {
-        console.error("Error fetching trade details:", error);
       }
     } catch (error: any) {
-      // No active trade
+      // No active trade scenario: only clear if the API explicitly says so (e.g., 404)
       if (error.response?.status === 404) {
+        if (assignedTrade?.id) {
+          localStorage.removeItem(`elapsed_start_${assignedTrade.id}`);
+        }
         setAssignedTrade(null);
         setPaymentInfo({});
         setMessages([]);
       } else {
         console.error("Error fetching trade data:", error);
+        // For other errors, you might want to keep the current trade displayed
+        // or show an error message without clearing the entire dashboard.
       }
     } finally {
       if (isInitial) setInitialLoading(false);
@@ -267,16 +237,19 @@ const PayerDashboard = () => {
     }
   }, [user]);
 
-  // Polling mechanism: silently refresh trade data every 5 seconds.
-useEffect(() => {
-  if (!user) return;
-
-  const intervalId = setInterval(() => {
-    fetchTradeData(false);
-  }, 3000);
-
-  return () => clearInterval(intervalId);
-}, [user, assignedTrade]);
+  useEffect(() => {
+    if (!user) return;
+  
+    const intervalId = setInterval(() => {
+      // Only poll if NO trade is currently assigned.
+      // If a trade IS assigned, we rely on Socket.IO for updates on that trade.
+      if (!assignedTrade) {
+        fetchTradeData(false);
+      }
+    }, 6000); 
+  
+    return () => clearInterval(intervalId);
+  }, [user, assignedTrade]); 
 
   // Refresh handler for manual refresh
   const handleRefresh = async () => {
@@ -293,11 +266,9 @@ useEffect(() => {
       setAssignedTrade(null);
       setPaymentInfo({});
       setMessages([]);
-      await new Promise((resolve) => setTimeout(resolve, 500));
       await fetchTradeData(true);
     } catch (error) {
       console.error("Error refreshing trade:", error);
-      console.error("Error refreshing trade data");
     }
   };
 
@@ -341,15 +312,8 @@ useEffect(() => {
     setPaymentInfo({});
     setMessages([]);
 
-    // Don't try to fetch new trade data immediately since there won't be any
-    // await fetchTradeData(true);  
-
     toast.success("Trade escalated successfully", successStyles);
 
-    // Optional: After a delay, check if there's a new trade assigned
-    setTimeout(() => {
-      fetchTradeData(true);
-    }, 2000);
   };
 
   useEffect(() => {
@@ -384,12 +348,12 @@ useEffect(() => {
 
   useEffect(() => {
     if (!assignedTrade?.id) return;
-  
+
     const tradeId = assignedTrade.id;
     const storageKey = `elapsed_start_${tradeId}`;
-  
+
     let startTime: number;
-  
+
     const storedStart = localStorage.getItem(storageKey);
     if (storedStart) {
       startTime = parseInt(storedStart, 10);
@@ -397,17 +361,17 @@ useEffect(() => {
       startTime = Date.now();
       localStorage.setItem(storageKey, startTime.toString());
     }
-  
+
     const calculateElapsed = () => Math.floor((Date.now() - startTime) / 1000);
     setElapsed(calculateElapsed());
-  
+
     const timer = setInterval(() => {
       setElapsed(calculateElapsed());
     }, 1000);
-  
+
     return () => clearInterval(timer);
   }, [assignedTrade?.id]);
-  
+
 
   useEffect(() => {
     if (!user?.id) return;
@@ -417,32 +381,11 @@ useEffect(() => {
       socketRef.current = io(SOCKET_BASE_URL, {
         auth: { userId: user.id },
         reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
       });
 
       socketRef.current.emit("joinNotificationRoom", user.id);
-
-      // Listen for trade deletions
-      socketRef.current.on("tradeDeleted", ({ tradeId }) => {
-        if (assignedTrade?.id === tradeId) {
-          console.log(`Received tradeDeleted event for current trade: ${tradeId}`);
-          setAssignedTrade(null);
-          setMessages([]);
-          setPaymentInfo({});
-          toast.success("Your trade was cancelled by the system", successStyles);
-        }
-      });
-
-      // Listen for trade status changes
-      socketRef.current.on("tradeStatusChanged", ({ tradeId, status }) => {
-        if (assignedTrade?.id === tradeId) {
-          const terminalStatuses = ["escalated", "paid", "completed", "successful", "cancelled", "expired"];
-          if (terminalStatuses.includes(status.toLowerCase())) {
-            setAssignedTrade(null);
-            setPaymentInfo({});
-            setMessages([]);
-          }
-        }
-      });
 
       // Reconnection logic
       socketRef.current.on("connect", () => {
@@ -450,31 +393,100 @@ useEffect(() => {
         socketRef.current?.emit("joinNotificationRoom", user.id);
       });
 
-      socketRef.current.on("disconnect", () => {
-        console.log("Socket disconnected");
+      socketRef.current.on("disconnect", (reason) => {
+        console.log("Socket disconnected:", reason);
       });
     }
 
     return () => {
-      console.log("Cleaning up socket listeners");
-      socketRef.current?.off("tradeDeleted");
-      socketRef.current?.off("tradeStatusChanged");
-      socketRef.current?.off("connect");
-      socketRef.current?.off("disconnect");
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = undefined;
+      }
     };
   }, [user?.id]);
 
   useEffect(() => {
-    if (assignedTrade?.id && socketRef.current) {
-      // Register interest in this specific trade
-      socketRef.current.emit("watchTrade", assignedTrade.id);
+    if (!socketRef.current || !user?.id) return;
 
-      return () => {
-        // Unregister when trade changes or component unmounts
-        socketRef.current?.emit("unwatchTrade", assignedTrade.id);
-      };
+    // Clear trade handler
+    const clearCurrentTrade = (reason: string) => {
+      console.log(`Clearing trade: ${reason}`);
+      if (assignedTrade?.id) {
+        localStorage.removeItem(`elapsed_start_${assignedTrade.id}`);
+      }
+      setAssignedTrade(null);
+      setMessages([]);
+      setPaymentInfo({});
+    };
+
+    // Listen for trade deletions
+    const handleTradeDeleted = ({ tradeId }: { tradeId: string }) => {
+      console.log(`Received tradeDeleted event for trade: ${tradeId}`);
+      if (assignedTrade?.id === tradeId) {
+        clearCurrentTrade("Trade deleted");
+        toast.success("Your trade was cancelled by the system", successStyles);
+      }
+    };
+
+    // Listen for trade status changes
+    const handleTradeStatusChanged = ({ tradeId, status, previousStatus }: {
+      tradeId: string;
+      status: string;
+      previousStatus?: string;
+    }) => {
+      console.log(`Received tradeStatusChanged: ${tradeId}, ${previousStatus} -> ${status}`);
+
+      if (assignedTrade?.id === tradeId) {
+        const terminalStatuses = ["escalated", "paid", "completed", "successful", "cancelled", "expired", "disputed"];
+
+        if (terminalStatuses.includes(status.toLowerCase())) {
+          clearCurrentTrade(`Status changed to ${status}`);
+          toast.success(`Trade status updated to ${status}`, successStyles);
+        } else {
+          // For non-terminal status changes, just update the trade status
+          setAssignedTrade(prev => prev ? { ...prev, status: status as TradeStatus } : null);
+        }
+      }
+    };
+
+    // Listen for trade completion (specific to assigned payers)
+    const handleTradeCompleted = ({ tradeId, status, message }: {
+      tradeId: string;
+      status: string;
+      message: string;
+    }) => {
+      console.log(`Received tradeCompleted: ${tradeId}, ${status}`);
+
+      if (assignedTrade?.id === tradeId) {
+        clearCurrentTrade(`Trade completed: ${status}`);
+        toast.success(message, successStyles);
+      }
+    };
+
+    // Attach listeners
+    socketRef.current.on("tradeDeleted", handleTradeDeleted);
+    socketRef.current.on("tradeStatusChanged", handleTradeStatusChanged);
+    socketRef.current.on("tradeCompleted", handleTradeCompleted);
+
+    // Register interest in current trade if exists
+    if (assignedTrade?.id) {
+      socketRef.current.emit("watchTrade", assignedTrade.id);
     }
-  }, [assignedTrade?.id]);
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.off("tradeDeleted", handleTradeDeleted);
+        socketRef.current.off("tradeStatusChanged", handleTradeStatusChanged);
+        socketRef.current.off("tradeCompleted", handleTradeCompleted);
+
+        // Unregister trade watching
+        if (assignedTrade?.id) {
+          socketRef.current.emit("unwatchTrade", assignedTrade.id);
+        }
+      }
+    };
+  }, [assignedTrade?.id, user?.id]);
 
   useEffect(() => {
     async function fetchCostPrice() {

@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export interface ResInterface {
+  failure: any;
   costPrice(costPrice: any): unknown;
   id(id: any): void | PromiseLike<void>;
   message: string;

@@ -57,6 +57,7 @@ interface LoadingState {
 }
 
 export interface Trade {
+  isEscalated: any;
   messageCount: number;
   accountId: string;
   id: string;
@@ -90,7 +91,7 @@ export interface Trade {
   isLive?: boolean;
 }
 
-const REFRESH_INTERVAL = 30000;
+const REFRESH_INTERVAL = 5000;
 
 const ExportButtons = ({
   data,
@@ -177,7 +178,6 @@ const formatDate = (date?: Date | string | null): string => {
   return `${timeString} (${relative})`;
 };
 
-
 const areTradesEqual = (prevTrades: Trade[], newTrades: Trade[]): boolean => {
   if (prevTrades.length !== newTrades.length) return false;
   
@@ -199,7 +199,13 @@ const areTradesEqual = (prevTrades: Trade[], newTrades: Trade[]): boolean => {
       trade.amount === newTrade.amount &&
       trade.platform === newTrade.platform &&
       trade.ownerUsername === newTrade.ownerUsername &&
-      trade.responderUsername === newTrade.responderUsername
+      trade.responderUsername === newTrade.responderUsername &&
+      trade.reason === newTrade.reason &&
+      trade.tradeHash === newTrade.tradeHash && 
+      trade.isEscalated === newTrade.isEscalated && 
+      trade.cryptoCurrencyCode === newTrade.cryptoCurrencyCode &&
+      trade.fiatCurrency === newTrade.fiatCurrency &&
+      trade.paymentMethod === newTrade.paymentMethod
     );
   });
 };
@@ -266,7 +272,7 @@ const CustomerSupport: React.FC = () => {
             amount: t.amount || 0,
             status: t.status,
             createdAt: t.createdAt,
-            updatedAt: t.updatedAt,
+            updatedAt: t.updatedAt, // Add this field
             ownerUsername: t.ownerUsername,
             responderUsername: t.responderUsername,
             reason: t.escalationReason,
@@ -275,6 +281,7 @@ const CustomerSupport: React.FC = () => {
             paymentMethod: t.paymentMethod,
             hasNewMessages: t.hasNewMessages,
             messageCount: t.messageCount || 0,
+            isEscalated: t.isEscalated !== undefined ? t.isEscalated : true, 
           }));
 
           setEscalatedTrades(prev => 
@@ -291,7 +298,6 @@ const CustomerSupport: React.FC = () => {
             amount: t.amount || 0,
             status: t.status,
             createdAt: t.createdAt,
-            updatedAt: t.updatedAt,
             ownerUsername: t.owner,
             responderUsername: t.username,
             cryptoCurrencyCode: t.cryptoCurrencyCode,
@@ -315,7 +321,6 @@ const CustomerSupport: React.FC = () => {
             amount: t.amount || 0,
             status: t.status,
             createdAt: t.createdAt,
-            updatedAt: t.updatedAt,
             ownerUsername: t.ownerUsername,
             responderUsername: t.assignedPayer?.fullName || t.responderUsername,
             cryptoCurrencyCode: t.cryptoCurrencyCode || 'N/A',
@@ -358,19 +363,17 @@ const CustomerSupport: React.FC = () => {
   }, [fetchData]);
 
   useEffect(() => {
-    // on mount or tabValue change, clear any existing timer
+    // Clear any existing timer
     if (refreshInterval.current) {
       clearInterval(refreshInterval.current);
     }
   
-    // only start the auto‑refresh loop if we're *not* on tab 0 (Escalated)
-    if (tabValue !== 0) {
-      refreshInterval.current = setInterval(() => {
-        debouncedRefresh();
-      }, REFRESH_INTERVAL);
-    }
+    // Start auto-refresh for ALL tabs (including escalated trades)
+    refreshInterval.current = setInterval(() => {
+      debouncedRefresh();
+    }, REFRESH_INTERVAL);
   
-    // cleanup on unmount
+    // Cleanup on unmount or tab change
     return () => {
       if (refreshInterval.current) {
         clearInterval(refreshInterval.current);
@@ -496,7 +499,6 @@ const CustomerSupport: React.FC = () => {
     );
   }
 
-
   return (
     <Box className="min-h-screen">
       {/* Header Section */}
@@ -526,7 +528,6 @@ const CustomerSupport: React.FC = () => {
                   : "completedTrades"
             }
           />
-
         </Box>
       </Box>
 
@@ -534,7 +535,6 @@ const CustomerSupport: React.FC = () => {
       <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
         <Tabs
         variant="fullWidth" 
-
           value={tabValue}
           onChange={handleTabChange}
           sx={{
@@ -619,58 +619,21 @@ const CustomerSupport: React.FC = () => {
           <Tooltip title="Refresh data">
             <span>
             <IconButton
-  onClick={refreshData}
-  disabled={loading.refresh} 
-  sx={{
-    bgcolor: "background.paper",
-    border: "1px solid",
-    borderColor: "divider",
-    "&:hover": { bgcolor: "action.hover" },
-  }}
->
-  {loading.refresh ? <CircularProgress size={20} /> : <Refresh fontSize="small" />}
-</IconButton>
+              onClick={refreshData}
+              disabled={loading.refresh} 
+              sx={{
+                bgcolor: "background.paper",
+                border: "1px solid",
+                borderColor: "divider",
+                "&:hover": { bgcolor: "action.hover" },
+              }}
+            >
+              {loading.refresh ? <CircularProgress size={20} /> : <Refresh fontSize="small" />}
+            </IconButton>
             </span>
           </Tooltip>
         </Box>
       </Box>
-
-      {/* Stats Cards */}
-      {/* <Box className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        <Paper
-          elevation={0}
-          sx={{
-            p: 3,
-            borderRadius: 3,
-            bgcolor: "background.paper",
-            border: "1px solid",
-            borderColor: "divider",
-          }}
-        >
-          <Typography variant="h5" sx={{ fontWeight: 600, mb: 1 }}>
-            {tabValue === 0
-              ? escalatedTrades.length
-              : tabValue === 1
-                ? completedTrades.length
-                : allTrades.length}
-          </Typography>
-
-          <Typography variant="body2" sx={{ color: "text.secondary", mb: 1 }}>
-            {tabValue === 0
-              ? "Total Escalations"
-              : tabValue === 1
-                ? "Total Completed"
-                : "Total Trades"}
-          </Typography>
-          <Typography variant="caption" sx={{ color: "text.secondary" }}>
-            {tabValue === 0
-              ? `${filteredEscalatedTrades.length} match current filters`
-              : tabValue === 1
-                ? `${filteredCompletedTrades.length} match current filters`
-                : `${filteredAllTrades.length} match current filters`}
-          </Typography>
-        </Paper>
-      </Box> */}
 
       {/* Tab Panels */}
       <TabPanel value={tabValue} index={0}>
@@ -736,7 +699,7 @@ const CustomerSupport: React.FC = () => {
                       {trade.amount?.toLocaleString()} {trade.fiatCurrency}
                     </TableCell>
                     <TableCell>
-                      <Chip label={trade.status} size="small" sx={{ ...getStatusStyles(trade.status), fontWeight: 500 }} />
+                      <Chip label="escalated" size="small" sx={{ ...getStatusStyles("escalated"), fontWeight: 500 }} />
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">{formatDate(trade.createdAt)}</Typography>

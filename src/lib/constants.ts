@@ -1,11 +1,6 @@
-// export const BASE_URL = "https://r845fh.bibuain.ng/api/v1";
-// export const SOCKET_BASE_URL = "https://r845fh.bibuain.ng";
 
-// export const BASE_URL = "https://svmfu33phm.ap-southeast-1.awsapprunner.com/api/v1";
-// export const SOCKET_BASE_URL = "https://svmfu33phm.ap-southeast-1.awsapprunner.com";
-
-export const BASE_URL = "http://localhost:7001/api/v1";
-export const SOCKET_BASE_URL = "http://localhost:7001";
+export const BASE_URL = import.meta.env.VITE_BASE_URL;
+export const SOCKET_BASE_URL = import.meta.env.VITE_SOCKET_BASE_URL;
 export const successStyles = {
   style: {
     maxWidth: "50rem",

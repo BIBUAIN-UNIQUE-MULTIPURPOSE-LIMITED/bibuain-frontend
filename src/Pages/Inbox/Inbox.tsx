@@ -85,8 +85,7 @@ const Inbox: React.FC = () => {
 
   // Initialize socket connection
   useEffect(() => {
-    // socketRef.current = io("https://r845fh.bibuain.ng"); 
-    socketRef.current = io("https://svmfu33phm.ap-southeast-1.awsapprunner.com");
+    socketRef.current = io(import.meta.env.VITE_SOCKET_BASE_URL);
 
     if (user?.id) {
       socketRef.current.emit("join", user.id);
@@ -358,7 +357,7 @@ const Inbox: React.FC = () => {
       return (
         <Box sx={{ mt: 1, mb: 1, maxWidth: "100%" }}>
           <img
-            src={`https://r845fh.bibuain.ng${attachment.url}`}
+            src={`${import.meta.env.VITE_SOCKET_BASE_URL}${attachment.url}`}
             alt={attachment.name}
             style={{
               maxWidth: "100%",
@@ -398,7 +397,7 @@ const Inbox: React.FC = () => {
         <IconButton
           size="small"
           component="a"
-          href={`https://r845fh.bibuain.ng${attachment.url}`}
+          href={`${import.meta.env.VITE_SOCKET_BASE_URL}${attachment.url}`}
           download
           sx={{ ml: 1 }}
         >
