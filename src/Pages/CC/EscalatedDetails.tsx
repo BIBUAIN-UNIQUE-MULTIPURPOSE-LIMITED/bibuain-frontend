@@ -90,6 +90,7 @@ const EscalatedDetails: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const theme = useTheme();
+  const [reassigning, setReassigning] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef?.current?.scrollIntoView({ behavior: "smooth" });
@@ -153,43 +154,42 @@ const EscalatedDetails: React.FC = () => {
     fetchTradeDetails();
   }, [tradeId]);
 
+  // const handleCancelTrade = async () => {
+  //   setCancelTradeState(true);
+  //   try {
+  //     if (!tradeId) {
+  //       toast.error("Trade ID is missing", errorStyles);
+  //       return;
+  //     }
 
-  const handleCancelTrade = async () => {
-    setCancelTradeState(true);
-    try {
-      if (!tradeId) {
-        toast.error("Trade ID is missing", errorStyles);
-        return;
-      }
+  //     const res = await cancelTradeRequest(tradeId);
+  //     console.log("Cancel trade response:", res);
 
-      const res = await cancelTradeRequest(tradeId);
-      console.log("Cancel trade response:", res);
+  //     if (res) {
+  //       toast.success("Trade cancelled successfully", successStyles);
 
-      if (res) {
-        toast.success("Trade cancelled successfully", successStyles);
+  //       // Update local state to reflect the cancelled status
+  //       setEscalatedTrade((prev: any) => ({
+  //         ...prev,
+  //         status: 'cancelled'
+  //       }));
 
-        // Update local state to reflect the cancelled status
-        setEscalatedTrade((prev: any) => ({
-          ...prev,
-          status: 'cancelled'
-        }));
-
-        // Navigate back to the list after a short delay
-        setTimeout(() => {
-          navigate("/customer-support");
-        }, 2000);
-      } else {
-        setTimeout(() => {
-          navigate("/customer-support");
-        }, 2000);
-      }
-    } catch (error) {
-      console.error("Error cancelling trade:", error);
-      toast.error("An error occurred while cancelling the trade", errorStyles);
-    } finally {
-      setCancelTradeState(false);
-    }
-  };
+  //       // Navigate back to the list after a short delay
+  //       setTimeout(() => {
+  //         navigate("/customer-support");
+  //       }, 2000);
+  //     } else {
+  //       setTimeout(() => {
+  //         navigate("/customer-support");
+  //       }, 2000);
+  //     }
+  //   } catch (error) {
+  //     console.error("Error cancelling trade:", error);
+  //     toast.error("An error occurred while cancelling the trade", errorStyles);
+  //   } finally {
+  //     setCancelTradeState(false);
+  //   }
+  // };
 
 
   const formatWATDateTime = (date: Date | string) => {
@@ -224,17 +224,15 @@ const EscalatedDetails: React.FC = () => {
       toast.error("Missing required data", errorStyles);
       return;
     }
-
+  
+    setReassigning(true); // start loading
+  
     try {
-      console.log("Reassigning trade:", {
-        tradeId: escalatedTrade.id,
-      });
-
       const response = await reAssignTrade(escalatedTrade.id);
-
+  
       if (response?.success) {
         toast.success("Trade reassigned successfully", successStyles);
-        fetchTradeDetails();
+        await fetchTradeDetails();
       } else {
         toast.error(response?.message || "Failed to reassign trade", errorStyles);
       }
@@ -244,9 +242,10 @@ const EscalatedDetails: React.FC = () => {
         error.response?.data?.message || "Failed to reassign trade",
         errorStyles
       );
+    } finally {
+      setReassigning(false); // end loading
     }
   };
-
 
   const handleSendMessage = async () => {
     // 1) guard on having a trade ID & nonempty text
@@ -425,13 +424,15 @@ const EscalatedDetails: React.FC = () => {
             </Typography>
 
             <Button
-              variant="contained"
-              fullWidth
-              sx={{ mt: 2 }}
-              onClick={handleReAssign}
-            >
-              Reassign Trade
-            </Button>
+  variant="contained"
+  fullWidth
+  sx={{ mt: 2 }}
+  onClick={handleReAssign}
+  disabled={reassigning}
+  startIcon={reassigning ? <CircularProgress size={20} color="inherit" /> : null}
+>
+  {reassigning ? "Reassigning..." : "Reassign Trade"}
+</Button>
 
 
             <Box sx={{ mb: 2, mt: 2 }}>
@@ -509,7 +510,7 @@ const EscalatedDetails: React.FC = () => {
 
 
 
-            <Button
+            {/* <Button
               variant="contained"
               fullWidth
               sx={{ mt: 2 }}
@@ -517,7 +518,7 @@ const EscalatedDetails: React.FC = () => {
               disabled={cancelTradeState}
             >
               {cancelTradeState ? "Cancelling..." : "Cancel Trade"}
-            </Button>
+            </Button> */}
 
           </Paper>
 
@@ -821,7 +822,9 @@ const EscalatedDetails: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-      <Dialog
+
+
+      {/* <Dialog
         open={confirmCancelOpen}
         onClose={() => setConfirmCancelOpen(false)}
       >
@@ -846,7 +849,9 @@ const EscalatedDetails: React.FC = () => {
             Yes
           </Button>
         </DialogActions>
-      </Dialog>
+      </Dialog> */}
+
+
     </Box>
   );
 };

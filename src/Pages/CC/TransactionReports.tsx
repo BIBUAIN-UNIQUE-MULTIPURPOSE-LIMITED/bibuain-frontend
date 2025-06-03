@@ -34,22 +34,11 @@ import {
   LineChart,
   Line,
 } from "recharts";
-import { getCCstats, getDashboardStats, getEscalatedTrades } from "../../api/trade";
-
-// Mock data
-const chartData = [
-  { month: "Jan", trades: 120, complaints: 20 },
-  { month: "Feb", trades: 150, complaints: 25 },
-  { month: "Mar", trades: 180, complaints: 30 },
-  { month: "Apr", trades: 220, complaints: 28 },
-];
-
-const responseTimeData = [
-  { time: "00:00", value: 2.5 },
-  { time: "06:00", value: 3.1 },
-  { time: "12:00", value: 2.8 },
-  { time: "18:00", value: 2.2 },
-];
+import {
+  getCCstats,
+  getEscalatedTrades,
+  getCompletedTrades,
+} from "../../api/trade";
 
 interface StatCardProps {
   title: string;
@@ -67,81 +56,74 @@ const StatCard: React.FC<StatCardProps> = ({
   trend,
   color = "primary",
   secondary,
-}) => {
-
-  return (
-    <Card
-      className="relative overflow-hidden"
-      sx={{
-        backgroundColor: "background.paper",
-        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-        height: "100%",
-        transition: "transform 0.2s",
-        "&:hover": {
-          transform: "translateY(-2px)",
-        },
-      }}
-    >
-      <CardContent className="p-6">
-        <Box className="flex justify-between items-start">
-          <Box className="flex flex-col">
-            <Typography
-              variant="subtitle2"
-              color="textSecondary"
-              className="mb-1"
-            >
-              {title}
+}) => (
+  <Card
+    className="relative overflow-hidden"
+    sx={{
+      backgroundColor: "background.paper",
+      boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+      height: "100%",
+      transition: "transform 0.2s",
+      "&:hover": {
+        transform: "translateY(-2px)",
+      },
+    }}
+  >
+    <CardContent className="p-6">
+      <Box className="flex justify-between items-start">
+        <Box className="flex flex-col">
+          <Typography variant="subtitle2" color="textSecondary" className="mb-1">
+            {title}
+          </Typography>
+          <Typography variant="h4" color="textPrimary" className="font-bold">
+            {value}
+          </Typography>
+          {secondary && (
+            <Typography variant="caption" color="textSecondary" className="mt-1">
+              {secondary}
             </Typography>
-            <Typography variant="h4" color="textPrimary" className="font-bold">
-              {value}
-            </Typography>
-            {secondary && (
-              <Typography
-                variant="caption"
-                color="textSecondary"
-                className="mt-1"
-              >
-                {secondary}
-              </Typography>
-            )}
-          </Box>
-          <Box
-            className="rounded-full p-2"
-            sx={{ backgroundColor: `${color}.lighter` }}
-          >
-            {icon}
-          </Box>
+          )}
         </Box>
-        {trend !== undefined && (
-          <Box className="mt-4 flex items-center">
-            <Box
-              component="span"
-              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                trend >= 0
-                  ? "bg-green-100 text-green-800"
-                  : "bg-red-100 text-red-800"
-              }`}
-            >
-              {trend >= 0 ? "+" : ""}
-              {trend}%
-            </Box>
-            <Typography variant="caption" className="ml-2 text-gray-500">
-              vs last period
-            </Typography>
+        <Box className="rounded-full p-2" sx={{ backgroundColor: `${color}.lighter` }}>
+          {icon}
+        </Box>
+      </Box>
+      {trend !== undefined && (
+        <Box className="mt-4 flex items-center">
+          <Box
+            component="span"
+            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+              trend >= 0 ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+            }`}
+          >
+            {trend >= 0 ? "+" : ""}
+            {trend}%
           </Box>
-        )}
-      </CardContent>
-      <Box
-        className="absolute bottom-0 left-0 right-0 h-1"
-        sx={{ backgroundColor: `${color}.main` }}
-      />
-    </Card>
-  );
-};
+          <Typography variant="caption" className="ml-2 text-gray-500">
+            vs last period
+          </Typography>
+        </Box>
+      )}
+    </CardContent>
+    <Box className="absolute bottom-0 left-0 right-0 h-1" sx={{ backgroundColor: `${color}.main` }} />
+  </Card>
+);
+
+// Replace mocks with dynamic chart data
+interface ChartDataPoint {
+  name: string;
+  trades: number;
+  complaints: number;
+}
+interface ResponseTimePoint {
+  name: string;
+  value: number;
+}
 
 const TransactionReports: React.FC = () => {
   const theme = useTheme();
 
+  // Dashboard stats
   const [stats, setStats] = useState<{
     totalTrades: number;
     newTradesToday: number;
@@ -151,56 +133,69 @@ const TransactionReports: React.FC = () => {
     activeVendors: number;
   } | null>(null);
 
-  const [dashboardStats, setDashboardStats] = useState<{
-    currentlyAssigned: number;
-    notYetAssigned: number;
-    escalated: number;
-    paidButNotMarked: number;
-    activeFunded: number;
-    totalTradesNGN: number;
-    totalTradesBTC: number;
-    averageResponseTime: number;
-  } | null>(null);
-
+  // Counts
+  const [paidCount, setPaidCount] = useState<number>(0);
+  const [disputedCount, setDisputedCount] = useState<number>(0);
   const [escalatedTrades, setEscalatedTrades] = useState<any[]>([]);
+
+  // Chart data states
+  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
+  const [responseTimeData, setResponseTimeData] = useState<ResponseTimePoint[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [ccRes, dashRes, escRes] = await Promise.all([
-          getCCstats(),             
-          getDashboardStats(),      
-          getEscalatedTrades(),    
+        // 1) Fetch core stats and escalations
+        const [ccRes, escRes] = await Promise.all([
+          getCCstats(),
+          getEscalatedTrades(),
         ]);
-  
-        if (ccRes && ccRes.data) {
-          setStats(ccRes.data);
-        }
-        if (dashRes && dashRes.data) {
-          setDashboardStats(dashRes.data);
-        }
-        if (escRes && Array.isArray(escRes.data)) {
-          setEscalatedTrades(escRes.data);
-        }
+        setStats(ccRes.data);
+        setEscalatedTrades(escRes.data);
+
+        // 2) Fetch all completed trades to derive paid/disputed counts
+        const completed = await getCompletedTrades({ page: 1, limit: 1000 });
+        const allTrades = completed.data.trades;
+        const paid = allTrades.filter(
+          (t: any) => t.status === "PAID" || t.tradeStatus?.toLowerCase() === "paid"
+        );
+        const disputed = allTrades.filter(
+          (t: any) => t.status === "DISPUTED" || t.tradeStatus?.toLowerCase() === "disputed"
+        );
+        setPaidCount(paid.length);
+        setDisputedCount(disputed.length);
+
+        // 3) Build chart data: single-point overview
+        setChartData([
+          {
+            name: "Overview",
+            trades: ccRes.data.totalTrades,
+            complaints: disputed.length,
+          },
+        ]);
+
+        // 4) Build response-time data
+        setResponseTimeData([
+          {
+            name: "Avg Response",
+            value: ccRes.data.avgResponseTimeHours,
+          },
+        ]);
       } catch (error) {
         console.error("Error fetching data:", error);
       }
     };
-  
+
     fetchData();
   }, []);
-  
 
-
-  // if (!stats) return <Typography>Loading...</Typography>;
+  if (!stats) return <Typography>Loading...</Typography>;
 
   return (
-    <Box className=" min-h-screen">
-      {/* Header Section */}
+    <Box className="min-h-screen">
+      {/* Header */}
       <Box className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">
-          Transaction Reports
-        </h1>
+        <h1 className="text-3xl font-bold text-foreground">Transaction Reports</h1>
         <Box className="flex items-center text-gray-500">
           <Timeline className="mr-2" />
           <Typography variant="subtitle1">
@@ -214,18 +209,17 @@ const TransactionReports: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Total Trades"
-            value={Number(stats?.totalTrades)}
+            value={stats.totalTrades}
             icon={<TrendingUp />}
             color="primary"
-            secondary={`${stats?.newTradesToday} new today`}
+            secondary={`${stats.newTradesToday} new today`}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Average Response Time"
-            value={`${stats?.avgResponseTimeHours.toFixed(1)}h`}
+            value={`${Number(stats.avgResponseTimeHours)}h`}
             icon={<AccessTime />}
-            // trend={-8}
             color="warning"
             secondary="Target: 2h"
           />
@@ -233,9 +227,8 @@ const TransactionReports: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Escalation Rate"
-            value={`${(stats?.escalationRatePercent || 0).toFixed(1)}%`}
+            value={`${stats.escalationRatePercent.toFixed(1)}%`}
             icon={<Warning />}
-            // trend={-2.1}
             color="error"
             secondary={`${escalatedTrades.length} active cases`}
           />
@@ -243,9 +236,8 @@ const TransactionReports: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Resolution Rate"
-            value={`${(stats?.resolutionRatePercent || 0).toFixed(1)}%`}
+            value={`${stats.resolutionRatePercent.toFixed(1)}%`}
             icon={<CheckCircle />}
-            // trend={5.3}
             color="success"
             secondary="Above target"
           />
@@ -267,20 +259,12 @@ const TransactionReports: React.FC = () => {
             <ResponsiveContainer width="100%" height={400}>
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
+                <XAxis dataKey="name" />
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Bar
-                  dataKey="trades"
-                  fill={theme.palette.primary.main}
-                  name="Total Trades"
-                />
-                <Bar
-                  dataKey="complaints"
-                  fill={theme.palette.secondary.main}
-                  name="Complaints"
-                />
+                <Bar dataKey="trades" name="Total Trades" fill={theme.palette.primary.main} />
+                <Bar dataKey="complaints" name="Complaints" fill={theme.palette.error.main} />
               </BarChart>
             </ResponsiveContainer>
           </Paper>
@@ -293,15 +277,10 @@ const TransactionReports: React.FC = () => {
             <ResponsiveContainer width="100%" height={200}>
               <LineChart data={responseTimeData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="time" />
+                <XAxis dataKey="name" />
                 <YAxis />
                 <Tooltip />
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke={theme.palette.primary.main}
-                  strokeWidth={2}
-                />
+                <Line type="monotone" dataKey="value" stroke={theme.palette.primary.main} strokeWidth={2} dot />
               </LineChart>
             </ResponsiveContainer>
           </Paper>
@@ -312,35 +291,32 @@ const TransactionReports: React.FC = () => {
       <Grid container spacing={3}>
         <Grid item xs={12} sm={6} md={4}>
           <StatCard
-            title="Paid Trade"
-            value="45"
-            icon={dashboardStats?.paidButNotMarked || 0}
-            trend={-2.5}
+            title="Paid Trades"
+            value={paidCount}
+            icon={<CheckCircle />}
             color="info"
           />
         </Grid>
         <Grid item xs={12} sm={6} md={4}>
           <StatCard
-            title="Dispute Trade"
-            value="28"
+            title="Disputed Trades"
+            value={disputedCount}
             icon={<Gavel />}
-            trend={5.8}
             color="error"
           />
         </Grid>
         <Grid item xs={12} sm={6} md={4}>
           <StatCard
             title="Moderator Messages"
-            value="156"
+            value="_"
             icon={<Message />}
-            trend={12.3}
             color="primary"
           />
         </Grid>
         <Grid item xs={12} sm={6} md={4}>
           <StatCard
             title="Released Complaints"
-            value="72"
+            value="_"
             icon={<CheckCircle />}
             color="success"
           />
@@ -348,7 +324,7 @@ const TransactionReports: React.FC = () => {
         <Grid item xs={12} sm={6} md={4}>
           <StatCard
             title="Unreleased Complaints"
-            value="13"
+            value="_"
             icon={<Cancel />}
             color="error"
           />
@@ -356,10 +332,9 @@ const TransactionReports: React.FC = () => {
         <Grid item xs={12} sm={6} md={4}>
           <StatCard
             title="Active Vendors"
-            value={Number(stats?.activeVendors) || 0}
+            value={stats.activeVendors}
             icon={<Group />}
-            secondary="45 before / 52 after shift"
-            color="secondary"
+            secondary=""
           />
         </Grid>
       </Grid>

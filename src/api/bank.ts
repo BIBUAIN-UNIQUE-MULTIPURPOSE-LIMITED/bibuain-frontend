@@ -18,6 +18,15 @@ export const addBank = async (data: unknown) => {
   }
 };
 
+export const getUsedBanks = async (): Promise<ResInterface> => {
+  try {
+    const res: ResInterface = await api.get("/banks/used");
+    return res;
+  } catch (error) {
+    handleApiError(error);
+  }
+};
+
 // Function to get all banks (Admin/Rater)
 export const getAllBanks = async () => {
   try {
