@@ -33,12 +33,13 @@ import {
   getFundedBanks,
   getRolloverBanks,
   useBank as spendBank,
+  getUsedBanks
 } from "../../api/bank";
 import { getCurrentShift } from "../../api/shift";
 import Loading from "../../Components/Loading";
 import { useNavigate } from "react-router-dom";
 import { useUserContext } from "../../Components/ContextProvider";
-import ClockedAlt from "../../Components/ClockedAlt";
+// import ClockedAlt from "../../Components/ClockedAlt";
 
 enum BankTag {
   FRESH = "fresh",
@@ -87,11 +88,13 @@ const Banks = () => {
   const tabOptions: { label: string; value: TabOption }[] =
     user?.userType === "payer"
       ? [
-          { label: "Funded Banks", value: "funded" }
+          { label: "Funded Banks", value: "funded" },
+          { label: "Used", value: "used" }
         ]
       : [
           { label: "All Banks", value: "all" },
           { label: "Funded Banks", value: "funded" },
+          { label: "Used", value: "used" },
           { label: "Unfunded", value: "free" },
           { label: "Rollover Banks", value: "rollover" },
         ];
@@ -138,6 +141,9 @@ const Banks = () => {
         case "free":
           res = await getFreeBanks();
           break;
+        case "used":
+          res = await getUsedBanks();
+          break;
         case "rollover":
           res = await getRolloverBanks();
           break;
@@ -174,8 +180,8 @@ const Banks = () => {
   };
 
   if (loading) return <Loading />;
-  if (!user?.clockedIn && user?.userType !== "admin")
-    return <ClockedAlt />;
+  // if (!user?.clockedIn && user?.userType !== "admin")
+  //   return <ClockedAlt />;
 
   return (
     <div className="space-y-6 min-h-screen font-primary">
