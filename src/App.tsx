@@ -29,12 +29,22 @@ import AllTemplates from "./Pages/AutoTemplate/AllTemplates";
 import CreateAccounts from "./Pages/Accounts/CreateAccounts";
 import AllAccounts from "./Pages/Accounts/AllAccounts";
 import TradeDetailsPage from "./Pages/CC/TradeDetailsPage";
+import Ratedashboard from "./Pages/ratedashboard";
 
 function App() {
   const { user } = useUserContext();
 
   return (
+
+    
     <LayoutProvider>
+       <link
+          rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+          integrity="sha512-..."
+          crossOrigin="anonymous"
+          referrerPolicy="no-referrer"
+        />
       <Routes>
         {/* Public Routes */}
         <Route path="/login" element={<Login />} />
@@ -121,6 +131,9 @@ function App() {
         {/* Coin Exchange */}
 
         <Route path="/exchange" element={<CoinExchange />} />
+
+        
+        <Route path="/ratedashboard" element={<Ratedashboard />} />
 
         {/* Bank Management Pages */}
         <Route path="/banks" element={<Banks />} />
