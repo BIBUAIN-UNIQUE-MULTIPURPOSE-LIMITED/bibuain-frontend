@@ -18,7 +18,7 @@ export const createEscalatedTrade = async ({
     const response = await api.post(
       `/escalated-trades/escalate/${tradeId}/${escalatedById}/${assignedPayerId}`,
       { complaint },
-      { withCredentials: true }
+      { withCredentials: true },
     );
     return response.data;
   } catch (error) {
@@ -26,7 +26,6 @@ export const createEscalatedTrade = async ({
     throw error;
   }
 };
-
 
 export const getAllEscalatedTrades = async (status?: string) => {
   try {
@@ -54,7 +53,7 @@ export const updateEscalatedTrade = async (id: string, updateData: unknown) => {
     toast.loading("Updating Trade...", loadingStyles);
     const res: ResInterface = await api.put(
       `/escalated-trades/${id}`,
-      updateData
+      updateData,
     );
     toast.dismiss();
     toast.success(res.message, successStyles);

@@ -81,7 +81,7 @@ interface PaymentInfo {
   accountNumber?: string;
   accountHolder?: string;
   buyer_name?: string;
-  [key: string]: any; // For other unknown properties
+  [key: string]: unknown;
 }
 
 const PayerDashboard = () => {
@@ -632,7 +632,7 @@ const PayerDashboard = () => {
         <div className="w-[1230px] right-0 h-[100vh] top-[0px] bg-red-500/20 absolute z-[0]" />
       )}
       <Container maxWidth="xl">
-        <Grid container spacing={3}>
+        <Grid container>
           {/* Left Column: Trade Details */}
           <Grid item xs={12} lg={8}>
             <div className="w-full z-[1] bg-white shadow-xl rounded-2xl p-8 space-y-8">
@@ -719,7 +719,7 @@ const PayerDashboard = () => {
               <div className="bg-blue-50 border-l-4 border-blue-600 p-6 rounded-lg space-y-4">
                 <h2 className="text-xl font-semibold text-gray-800">Payment Details</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="space-y-2">
+                  <div className="space-2">
                     <div className="flex items-center gap-2">
                       <Bank className="text-blue-600" />
                       <p className="text-sm text-gray-500">Bank Name</p>
@@ -728,7 +728,7 @@ const PayerDashboard = () => {
                       {paymentInfo?.bankName || "N/A"}
                     </h1>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-2">
                     <div className="flex items-center gap-2">
                       <CreditCardIcon className="text-blue-600" />
                       <p className="text-sm text-gray-500">Account Number</p>
@@ -737,12 +737,12 @@ const PayerDashboard = () => {
                       {paymentInfo?.accountNumber || "N/A"}
                     </h1>
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-2">
                     <div className="flex items-center gap-2">
                       <Person className="text-blue-600" />
                       <p className="text-sm text-gray-500">Account Holder</p>
                     </div>
-                    <h1 className="text-lg font-semibold text-gray-800">
+                    <h1 className="text-lg font-semibold text-gray-800 text-[25px]">
                       {paymentInfo?.accountHolder || "N/A"}
                     </h1>
                   </div>

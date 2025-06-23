@@ -57,7 +57,6 @@ export const getFundedBanks = async () => {
   }
 };
 
-
 // Function to get rollover banks (Admin/Rater)
 export const getRolloverBanks = async () => {
   try {
@@ -67,7 +66,6 @@ export const getRolloverBanks = async () => {
     handleApiError(error);
   }
 };
-
 
 // Function to get a single bank by ID (Admin/Rater)
 export const getSingleBank = async (id: string) => {
@@ -108,7 +106,10 @@ export const deleteBank = async (id: string) => {
 };
 
 // Function to use (spend) a bank (Payer)
-export const useBank = async (id: string, payload: { amountUsed: number; shiftId: string }) => {
+export const useBank = async (
+  id: string,
+  payload: { amountUsed: number; shiftId: string },
+) => {
   try {
     toast.loading("Processing Transaction...", loadingStyles);
     const res: ResInterface = await api.post(`/banks/use/${id}`, payload);

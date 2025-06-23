@@ -36,7 +36,7 @@ api.interceptors.response.use(
       console.error("Error: ", error.message);
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 export const handleApiError = (error: unknown, defaultMessage?: string) => {
@@ -214,7 +214,7 @@ export const markAllNotificationsAsCompleted = async () => {
 export const deleteNotificationById = async (notificationId: string) => {
   try {
     const res: ResInterface = await api.delete(
-      `/notification/${notificationId}`
+      `/notification/${notificationId}`,
     );
     toast.success(res.message, successStyles);
     return res;

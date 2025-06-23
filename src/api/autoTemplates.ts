@@ -40,7 +40,7 @@ export const createTemplate = async (data: TemplateData) => {
 // Update existing message template
 export const updateTemplate = async (
   id: string,
-  data: Partial<TemplateData>
+  data: Partial<TemplateData>,
 ) => {
   try {
     toast.loading("Updating template...", loadingStyles);

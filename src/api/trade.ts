@@ -40,10 +40,16 @@ export const getCurrentRates = async () => {
 };
 
 export const updateAccountRates = async (payload: {
-  platformRates: Record<string, { costPrice: number; markup1: number; markup2: number }>;
+  platformRates: Record<
+    string,
+    { costPrice: number; markup1: number; markup2: number }
+  >;
 }) => {
   try {
-    const res: ResInterface = await api.post("/trade/update-account-rates", payload);
+    const res: ResInterface = await api.post(
+      "/trade/update-account-rates",
+      payload,
+    );
     console.log("API Response from updateAccountRates:", res);
     return res;
   } catch (error) {
@@ -91,11 +97,11 @@ export const getPayerTrade = async (id: string) => {
 export const getTradeDetails = async (
   platform: string,
   tradeHash: string,
-  accountId: string
+  accountId: string,
 ) => {
   try {
     const res: ResInterface = await api.get(
-      `/trade/payer/trade/info/${platform}/${tradeHash}/${accountId}`
+      `/trade/payer/trade/info/${platform}/${tradeHash}/${accountId}`,
     );
     return res;
   } catch (error) {
@@ -105,30 +111,27 @@ export const getTradeDetails = async (
 
 export const sendTradeMessage = async (
   tradeId: string,
-  content: string
+  content: string,
 ): Promise<ApiResponse<ChatMessage>> => {
   try {
     const response = await api.post<ApiResponse<ChatMessage>>(
       `/trade/${tradeId}/chat-message`,
-      { content }
+      { content },
     );
     // if the server returns 200 with { success, message, data }
     return response.data;
   } catch (err: any) {
-    console.error('sendTradeMessage failed:', err);
+    console.error("sendTradeMessage failed:", err);
     // normalize into ApiResponse shape so FE can safely do res.success
     return {
       success: false,
       data: null as any,
-      message: err.response?.data?.message || err.message || 'Unknown error',
+      message: err.response?.data?.message || err.message || "Unknown error",
     };
   }
 };
 
-
-export const markTradeAsPaid = async (
-  tradeId: string
-) => {
+export const markTradeAsPaid = async (tradeId: string) => {
   try {
     const res: ResInterface = await api.post(`/trade/mark-paid/${tradeId}`);
     return res;
@@ -137,9 +140,14 @@ export const markTradeAsPaid = async (
   }
 };
 
-export const getFeedbackStats = async (params: { username: string; platform: string }) => {
+export const getFeedbackStats = async (params: {
+  username: string;
+  platform: string;
+}) => {
   try {
-    const res: ResInterface = await api.get("/trade/feedback-stats", { params });
+    const res: ResInterface = await api.get("/trade/feedback-stats", {
+      params,
+    });
     return res;
   } catch (error) {
     handleApiError(error);
@@ -192,10 +200,10 @@ export const getOffersMargin = async () => {
 
 export const updateOffers = async (payload: OfferUpdatePayload) => {
   try {
-    const response = await api.post('/trade/offers/update', payload);
-    return response
+    const response = await api.post("/trade/offers/update", payload);
+    return response;
   } catch (error) {
-    console.error('Error updating offers:', error);
+    console.error("Error updating offers:", error);
     throw error;
   }
 };
@@ -221,7 +229,8 @@ export const turnOffAllOffers = async () => {
 export const reAssignTrade = async (tradeId: string) => {
   try {
     const res: ResInterface = await api.post(
-      `/trade/reassign-trade/${tradeId}`);
+      `/trade/reassign-trade/${tradeId}`,
+    );
     return res;
   } catch (error) {
     handleApiError(error);
@@ -284,7 +293,10 @@ export const getRaterRates = async () => {
 export const setRaterRates = async (payload: {
   sellingPrice: number;
   usdtNgnRate: number;
-  platformRates: Record<string, { costPrice: number; markup1: number; markup2: number }>;
+  platformRates: Record<
+    string,
+    { costPrice: number; markup1: number; markup2: number }
+  >;
 }) => {
   try {
     const res: ResInterface = await api.post("/trade/set-rates", payload);
@@ -311,10 +323,13 @@ export const escalateTrade = async (
     reason: string;
     escalatedById: string;
     assignedPayerId: string;
-  }
+  },
 ) => {
   try {
-    const res: ResInterface = await api.post(`/trade/${tradeId}/escalate`, payload);
+    const res: ResInterface = await api.post(
+      `/trade/${tradeId}/escalate`,
+      payload,
+    );
     toast.success(res.message || "Trade escalated successfully", successStyles);
     return res;
   } catch (error) {
@@ -361,10 +376,10 @@ export const getEscalatedTradeById = async (id: string) => {
 
 export const getngnPlatformRate = async () => {
   try {
-    const res: ResInterface = await api.get('/trade/get-ngnrates');
+    const res: ResInterface = await api.get("/trade/get-ngnrates");
     return res;
   } catch (error) {
-    handleApiError(error)
+    handleApiError(error);
   }
 };
 
@@ -379,8 +394,11 @@ export const cancelTradeRequest = async (tradeId: string) => {
 
 export const activateDeactivatedOffers = async () => {
   try {
-    const res: ResInterface = await api.post('/trade/activate-deactivated');
-    toast.success(res.message || "Deactivated offers reactivated", successStyles);
+    const res: ResInterface = await api.post("/trade/activate-deactivated");
+    toast.success(
+      res.message || "Deactivated offers reactivated",
+      successStyles,
+    );
     return res;
   } catch (error) {
     console.error("Error in activateDeactivatedOffers:", error);
@@ -388,20 +406,24 @@ export const activateDeactivatedOffers = async () => {
   }
 };
 
-export const getPlatformCostPrice = async (platform: string): Promise<CostPriceResponse | null> => {
+export const getPlatformCostPrice = async (
+  platform: string,
+): Promise<CostPriceResponse | null> => {
   try {
     // This should get the raw response data
-    const response = await api.get<CostPriceResponse>(`/trade/costprice/${platform}`);
-    
+    const response = await api.get<CostPriceResponse>(
+      `/trade/costprice/${platform}`,
+    );
+
     // Check if the response data exists
     if (!response || !response.data) {
-      throw new Error('No response received from server');
+      throw new Error("No response received from server");
     }
-    
+
     // Return the response data which contains platform and costPrice directly
     return response.data;
   } catch (error) {
-    console.error('Error fetching platform cost price:', error);
+    console.error("Error fetching platform cost price:", error);
     handleApiError(error);
     return null;
   }

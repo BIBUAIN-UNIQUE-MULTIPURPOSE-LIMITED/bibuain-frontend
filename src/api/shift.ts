@@ -58,7 +58,7 @@ export const endBreak = async () => {
 export const getShiftMetrics = async (
   userId: string,
   startDate: string,
-  endDate: string
+  endDate: string,
 ) => {
   try {
     const res: ResInterface = await api.get(`/shift/metrics/${userId}`, {

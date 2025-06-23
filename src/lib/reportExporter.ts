@@ -3,10 +3,7 @@ import pdfMake from "pdfmake/build/pdfmake";
 import * as pdfFonts from "pdfmake/build/vfs_fonts";
 import { TDocumentDefinitions, Content } from "pdfmake/interfaces";
 
-pdfMake.vfs =
-  (pdfFonts as any).pdfMake?.vfs
-  ?? (pdfFonts as any).vfs;
-  
+pdfMake.vfs = (pdfFonts as any).pdfMake?.vfs ?? (pdfFonts as any).vfs;
 
 // Define the interfaces used in the export (if needed)
 interface ComplaintData {
@@ -54,7 +51,7 @@ export interface Trade {
 
 export const exportToCSV = (
   data: any[],
-  type: "completedTrades" | "escalatedTrades" | "allTrades"
+  type: "completedTrades" | "escalatedTrades" | "allTrades",
 ) => {
   let headers: string[] = [];
   let csvData: any[] = [];
@@ -133,7 +130,7 @@ export const exportToCSV = (
   link.setAttribute("href", url);
   link.setAttribute(
     "download",
-    `${type}_${new Date().toISOString().split("T")[0]}.csv`
+    `${type}_${new Date().toISOString().split("T")[0]}.csv`,
   );
   document.body.appendChild(link);
   link.click();
@@ -142,7 +139,7 @@ export const exportToCSV = (
 
 export const exportToPDF = (
   data: any[],
-  type: "completedTrades" | "escalatedTrades" | "allTrades"
+  type: "completedTrades" | "escalatedTrades" | "allTrades",
 ) => {
   let title = "";
   let headers: string[] = [];
@@ -217,7 +214,7 @@ export const exportToPDF = (
   const docDefinition: TDocumentDefinitions = {
     pageSize: "A4",
     pageMargins: [40, 60, 40, 60],
-    content: ([
+    content: [
       {
         text: title,
         style: "header",
@@ -242,7 +239,7 @@ export const exportToPDF = (
               color: "#ffffff",
             })),
             ...tableData.map((row) =>
-              row.map((cell) => ({ text: cell, style: "tableCell" }))
+              row.map((cell) => ({ text: cell, style: "tableCell" })),
             ),
           ],
         },
@@ -256,7 +253,7 @@ export const exportToPDF = (
             rowIndex % 2 === 0 ? "#f5f5f5" : undefined,
         },
       },
-    ] as Content[]),
+    ] as Content[],
     styles: {
       header: { fontSize: 18, bold: true },
       subheader: { fontSize: 10 },

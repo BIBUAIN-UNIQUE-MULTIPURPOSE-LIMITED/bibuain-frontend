@@ -121,6 +121,8 @@ const BalanceCheckUI: React.FC = () => {
   const formatCryptoAmount = (amount: number): string => {
     return amount.toFixed(8) + " BTC";
   };
+
+  
   // API call to fetch wallet balances.
   const fetchWalletBalances = async (showLoading = true) => {
     if (showLoading) setIsLoading(true);
